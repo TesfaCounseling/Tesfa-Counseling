@@ -1,12 +1,15 @@
 """
-Seed a platform admin user for local development.
+Seed a platform admin user.
 
 Usage:
   cd backend
   python seed_admin.py
+
+Production (Render Shell):
+  flask db upgrade
+  python seed_admin.py
 """
 import os
-import sys
 
 from dotenv import load_dotenv
 
@@ -21,7 +24,20 @@ def main():
     email = os.environ.get("ADMIN_EMAIL", "admin@tesfacounseling.local")
     password = os.environ.get("ADMIN_PASSWORD", "admin-change-me")
 
-    app = create_app()
+    config_name = "production" if os.environ.get("FLASK_ENV") == "production" else "default"
+    app = create_app(config_name)
+    db_url = app.config.get("SQLALCHEMY_DATABASE_URI", "")
+
+    if db_url.startswith("sqlite"):
+        print("ERROR: Using SQLite, not Postgres. DATABASE_URL is missing in this shell.")
+        print("  Render Shell: confirm Environment has DATABASE_URL, then run:")
+        print("    echo $DATABASE_URL")
+        print("    flask db upgrade")
+        print("    python seed_admin.py")
+        raise SystemExit(1)
+
+    print(f"Database: Postgres ({db_url.split('@')[-1] if '@' in db_url else 'connected'})")
+
     with app.app_context():
         existing = User.query.filter_by(email=email).first()
         if existing:

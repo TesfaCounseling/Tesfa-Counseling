@@ -12,7 +12,13 @@ def _default_database_url() -> str:
             return explicit.replace("postgres://", "postgresql://", 1)
         return explicit
 
-    # SQLite lives at project root (off Google Drive / sync folders).
+    if os.environ.get("RENDER") or os.environ.get("FLASK_ENV") == "production":
+        raise RuntimeError(
+            "DATABASE_URL is required in production (Render). "
+            "Set it in Render Environment variables."
+        )
+
+    # SQLite lives at project root (local dev only).
     project_root = _BACKEND_DIR.parent
     default_local = project_root / "tesfa_counseling.db"
     legacy_local = Path(r"C:\dev\ethio-counseling\ethio_counseling.db")
