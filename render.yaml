@@ -1,0 +1,56 @@
+services:
+
+  - type: web
+
+    name: tesfa-counseling-api
+
+    runtime: python
+
+    rootDir: backend
+
+    buildCommand: pip install -r requirements.txt
+
+    preDeployCommand: flask db upgrade
+
+    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+
+    healthCheckPath: /api/v1/health
+
+    envVars:
+
+      - key: FLASK_APP
+
+        value: wsgi:app
+
+      - key: FLASK_ENV
+
+        value: production
+
+      - key: PYTHON_VERSION
+
+        value: "3.12.7"
+
+      - key: SECRET_KEY
+
+        generateValue: true
+
+      - key: JWT_SECRET_KEY
+
+        generateValue: true
+
+      - key: DATABASE_URL
+
+        sync: false
+
+      - key: CORS_ORIGINS
+
+        sync: false
+
+      - key: TELEGRAM_BOT_TOKEN
+
+        sync: false
+
+      - key: TELEGRAM_WEBHOOK_SECRET
+
+        sync: false
+

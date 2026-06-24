@@ -1,0 +1,54 @@
+"""
+Seed a platform admin user for local development.
+
+Usage:
+  cd backend
+  python seed_admin.py
+"""
+import os
+import sys
+
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from app import create_app
+from app.extensions import db
+from app.models import Organization, OrganizationMember, User, UserRole
+
+
+def main():
+    email = os.environ.get("ADMIN_EMAIL", "admin@tesfacounseling.local")
+    password = os.environ.get("ADMIN_PASSWORD", "admin-change-me")
+
+    app = create_app()
+    with app.app_context():
+        existing = User.query.filter_by(email=email).first()
+        if existing:
+            print(f"Admin already exists: {email}")
+            return
+
+        org = Organization.query.filter_by(slug="platform").first()
+        if not org:
+            org = Organization(name="Platform", slug="platform", timezone="UTC")
+            db.session.add(org)
+            db.session.flush()
+
+        user = User(email=email, first_name="Platform", last_name="Admin", is_email_verified=True)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.flush()
+
+        db.session.add(
+            OrganizationMember(
+                organization_id=org.id,
+                user_id=user.id,
+                role=UserRole.PLATFORM_ADMIN,
+            )
+        )
+        db.session.commit()
+        print(f"Created platform admin: {email}")
+
+
+if __name__ == "__main__":
+    main()
