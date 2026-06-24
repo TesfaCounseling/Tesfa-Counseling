@@ -1,6 +1,8 @@
 [build]
   base = "frontend"
   command = "npm run build"
+  # Must differ from base; @netlify/plugin-nextjs uses this. Clear "Publish directory" in Netlify UI if set to "frontend".
+  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "20"
