@@ -84,7 +84,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<AuthShell title="Log in" subtitle="Loading…" />}>
+    <Suspense
+      fallback={
+        <AuthShell title="Log in" subtitle="Loading…">
+          <p className="text-sm text-ethio-ink-muted">Loading…</p>
+        </AuthShell>
+      }
+    >
       <LoginForm />
     </Suspense>
   );

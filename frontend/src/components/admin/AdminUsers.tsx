@@ -11,7 +11,7 @@ import {
 } from "@/lib/api";
 import { formatDateTime, formatStatusLabel } from "@/lib/format";
 
-const STAFF_ROLE_SET = new Set(GRANTABLE_ADMIN_ROLES.map((r) => r.value));
+const STAFF_ROLE_SET = new Set<string>(GRANTABLE_ADMIN_ROLES.map((r) => r.value));
 
 function roleLabel(role: string) {
   return GRANTABLE_ADMIN_ROLES.find((r) => r.value === role)?.label || formatStatusLabel(role);
