@@ -180,6 +180,7 @@ JWT_SECRET_KEY=dev-jwt-secret-change-me
 | CORS errors in browser | Add exact Netlify origin to `CORS_ORIGINS` on Render (no trailing slash) |
 | 502 / API sleep (free tier) | First request wakes service; consider paid plan for always-on |
 | Migrations failed on deploy | Check Render deploy logs; run `flask db upgrade` manually in Shell |
+| `TypeError: Union.__getitem__` / Python 3.14 | Set Render env `PYTHON_VERSION=3.12.7` (SQLAlchemy is not compatible with 3.14 yet) |
 | Frontend “Cannot reach API” | Verify `NEXT_PUBLIC_API_URL` and redeploy Netlify after changing it |
 | Admin page “Access denied” | Run `seed_admin.py`; log in as platform admin |
 
