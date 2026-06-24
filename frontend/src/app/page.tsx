@@ -7,7 +7,10 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5050/api/v1
 
 async function getHealth() {
   try {
-    const res = await fetch(`${API_URL}/health`, { cache: "no-store" });
+    const res = await fetch(`${API_URL}/health`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
     if (!res.ok) return null;
     return res.json();
   } catch {
