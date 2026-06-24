@@ -1,6 +1,6 @@
 # Tesfa Counseling — Production Deployment
 
-Deploy the **Next.js frontend** on Netlify and the **Flask API** on Render with a managed Postgres database.
+Deploy the **Next.js frontend** on Netlify, **Postgres on Netlify Database**, and the **Flask API** on Render.
 
 ---
 
@@ -8,17 +8,60 @@ Deploy the **Next.js frontend** on Netlify and the **Flask API** on Render with 
 
 | Service | Platform | URL pattern |
 |---------|----------|-------------|
-| Frontend | Netlify | `https://your-site.netlify.app` |
-| API | Render | `https://tesfa-counseling-api.onrender.com` |
-| Database | Render Postgres (or external) | Set as `DATABASE_URL` on Render |
+| Frontend | Netlify | `https://tesfa-counseling.netlify.app` |
+| API | Render | `https://tesfa-counseling.onrender.com` |
+| Database | **Netlify Database** (Postgres) | `DATABASE_URL` on **Render** only |
+
+The frontend never connects to the database directly. Render’s Flask API uses `DATABASE_URL`.
 
 ---
 
-## 1. Database (Render Postgres)
+## 1. Database (Netlify Database → Render)
 
-1. In [Render Dashboard](https://dashboard.render.com), create a **PostgreSQL** instance.
-2. Copy the **Internal Database URL** (use internal URL from the API service for lower latency).
-3. Render may provide `postgres://` — the app auto-converts this to `postgresql://`.
+### Create the database (Netlify UI)
+
+1. Open your site: [Netlify](https://app.netlify.com) → **Tesfa-Counseling**
+2. Left sidebar → **Database**
+3. Click **Create a database manually** (or use **Add database**)
+4. Wait until the production branch shows **Active**
+
+### Copy the connection string for Render
+
+1. Still on **Database** → section **Branches**
+2. Open the **production** branch
+3. Click **Copy connection string** (include credentials / show password if prompted)
+
+The URL looks like:
+
+```
+postgresql://USER:PASSWORD@HOST/DATABASE?sslmode=require
+```
+
+`postgres://` also works — the Flask app auto-converts to `postgresql://`.
+
+### Set on Render (not Netlify)
+
+1. [Render Dashboard](https://dashboard.render.com) → **Tesfa-Counseling** web service
+2. **Environment** → add or edit:
+
+| Variable | Value |
+|----------|--------|
+| `DATABASE_URL` | Paste the Netlify Database connection string |
+
+3. **Save** → **Manual Deploy** (or wait for auto-deploy)
+
+Migrations run on each deploy via `preDeployCommand: flask db upgrade` in `render.yaml`.
+
+### Optional: Netlify CLI
+
+```bash
+npm install -g netlify-cli
+netlify login
+netlify link
+netlify database status --show-credentials
+```
+
+Use the **production** branch credentials for Render `DATABASE_URL`.
 
 ---
 
@@ -32,8 +75,8 @@ Deploy the **Next.js frontend** on Netlify and the **Flask API** on Render with 
 
 | Variable | Example | Required |
 |----------|---------|----------|
-| `DATABASE_URL` | `postgresql://...` | Yes |
-| `CORS_ORIGINS` | `https://your-site.netlify.app` | Yes |
+| `DATABASE_URL` | Netlify Database connection string | Yes |
+| `CORS_ORIGINS` | `https://tesfa-counseling.netlify.app` | Yes |
 | `SECRET_KEY` | auto-generated | Yes |
 | `JWT_SECRET_KEY` | auto-generated | Yes |
 | `TELEGRAM_BOT_TOKEN` | optional | No |
@@ -88,13 +131,14 @@ curl https://YOUR-API.onrender.com/api/v1/health
    - Build: `npm run build`
    - Plugin: `@netlify/plugin-nextjs` (handles Next.js output — no manual publish path)
 
-3. Set **environment variable**:
+3. Set **environment variables**:
 
 | Variable | Value |
 |----------|-------|
-| `NEXT_PUBLIC_API_URL` | `https://YOUR-API.onrender.com/api/v1` |
+| `NEXT_PUBLIC_API_URL` | `https://tesfa-counseling.onrender.com/api/v1` |
+| `NEXT_PUBLIC_APP_NAME` | `Tesfa Counseling` |
 
-4. Deploy. After deploy, update Render `CORS_ORIGINS` to include your exact Netlify URL (and custom domain if added).
+4. Deploy. On Render, set `CORS_ORIGINS` to `https://tesfa-counseling.netlify.app` (no trailing slash).
 
 ---
 
