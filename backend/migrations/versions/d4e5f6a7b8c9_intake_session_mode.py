@@ -7,6 +7,7 @@ Create Date: 2026-06-19
 """
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision = "d4e5f6a7b8c9"
 down_revision = "c3d4e5f6a7b8"
@@ -15,8 +16,18 @@ depends_on = None
 
 
 def upgrade():
-    session_mode = sa.Enum("video", "audio_only", name="session_mode")
-    intake_session_mode = sa.Enum("video", "audio_only", name="trainee_intake_session_mode")
+    session_mode = postgresql.ENUM(
+        "video",
+        "audio_only",
+        name="session_mode",
+        create_type=False,
+    )
+    intake_session_mode = postgresql.ENUM(
+        "video",
+        "audio_only",
+        name="trainee_intake_session_mode",
+        create_type=False,
+    )
     session_mode.create(op.get_bind(), checkfirst=True)
     intake_session_mode.create(op.get_bind(), checkfirst=True)
 
@@ -58,5 +69,5 @@ def upgrade():
 def downgrade():
     op.drop_table("trainee_intakes")
     op.drop_column("appointments", "session_mode")
-    sa.Enum(name="trainee_intake_session_mode").drop(op.get_bind(), checkfirst=True)
-    sa.Enum(name="session_mode").drop(op.get_bind(), checkfirst=True)
+    postgresql.ENUM(name="trainee_intake_session_mode").drop(op.get_bind(), checkfirst=True)
+    postgresql.ENUM(name="session_mode").drop(op.get_bind(), checkfirst=True)

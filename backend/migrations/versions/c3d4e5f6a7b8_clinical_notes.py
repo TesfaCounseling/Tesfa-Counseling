@@ -7,6 +7,7 @@ Create Date: 2026-06-19
 """
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy.dialects import postgresql
 
 revision = "c3d4e5f6a7b8"
 down_revision = "b2c3d4e5f6a7"
@@ -15,7 +16,13 @@ depends_on = None
 
 
 def upgrade():
-    clinical_note_status = sa.Enum("draft", "submitted", "cosigned", name="clinical_note_status")
+    clinical_note_status = postgresql.ENUM(
+        "draft",
+        "submitted",
+        "cosigned",
+        name="clinical_note_status",
+        create_type=False,
+    )
     clinical_note_status.create(op.get_bind(), checkfirst=True)
 
     op.create_table(
@@ -48,4 +55,4 @@ def upgrade():
 
 def downgrade():
     op.drop_table("clinical_notes")
-    sa.Enum(name="clinical_note_status").drop(op.get_bind(), checkfirst=True)
+    postgresql.ENUM(name="clinical_note_status").drop(op.get_bind(), checkfirst=True)
