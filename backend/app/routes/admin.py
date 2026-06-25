@@ -372,6 +372,19 @@ def _count_active_platform_admins() -> int:
     ).count()
 
 
+def _user_is_active_platform_admin(user: User) -> bool:
+    platform = _get_platform_org()
+    return (
+        OrganizationMember.query.filter_by(
+            organization_id=platform.id,
+            user_id=user.id,
+            role=UserRole.PLATFORM_ADMIN,
+            is_active=True,
+        ).first()
+        is not None
+    )
+
+
 def _resolve_staff_role_org(role: UserRole, organization_id: uuid.UUID | None) -> uuid.UUID:
     """Supervisor and platform admin always live on the Platform org."""
     if role in (UserRole.PLATFORM_ADMIN, UserRole.SUPERVISOR):
@@ -638,6 +651,42 @@ def update_user(user_id, current_user):
     db.session.commit()
 
     return jsonify({"user": _user_admin_dict(user)})
+
+
+@admin_bp.route("/users/<uuid:user_id>", methods=["DELETE"])
+@require_roles(UserRole.PLATFORM_ADMIN)
+def delete_user(user_id, current_user):
+    user = db.session.get(User, user_id)
+    if not user:
+        return jsonify({"error": "Not Found", "message": "User not found"}), 404
+
+    if user.id == current_user.id:
+        return jsonify({"error": "Forbidden", "message": "You cannot delete your own account"}), 403
+
+    if _user_is_active_platform_admin(user) and _count_active_platform_admins() <= 1:
+        return jsonify({"error": "Conflict", "message": "Cannot delete the last platform admin"}), 409
+
+    deleted_email = user.email
+    deleted_name = user.full_name
+    deleted_id = str(user.id)
+    log_audit(
+        "user.deleted",
+        "user",
+        deleted_id,
+        f"email={deleted_email}",
+        actor_id=current_user.id,
+    )
+    db.session.delete(user)
+    db.session.commit()
+
+    return jsonify(
+        {
+            "ok": True,
+            "deleted_user_id": deleted_id,
+            "email": deleted_email,
+            "full_name": deleted_name,
+        }
+    )
 
 
 @admin_bp.route("/users/<uuid:user_id>/roles", methods=["POST"])

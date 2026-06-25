@@ -7,7 +7,6 @@ import AdminApprovals from "@/components/admin/AdminApprovals";
 import AdminProviders from "@/components/admin/AdminProviders";
 import AdminUsers from "@/components/admin/AdminUsers";
 import AdminAuditLog from "@/components/admin/AdminAuditLog";
-import AdminOrganizations from "@/components/admin/AdminOrganizations";
 import AdminStatisticsPanel from "@/components/admin/AdminStatisticsPanel";
 import { getAdminOverview, type AdminOverview, type AuthUser } from "@/lib/api";
 import { canManagePlatform, canReviewCounselors } from "@/lib/roles";
@@ -47,8 +46,7 @@ export default function AdminDashboardPanel({ user }: AdminDashboardPanelProps) 
         { id: "statistics", label: "Statistics" },
         { id: "providers", label: "Providers" },
         { id: "users", label: "Users" },
-        { id: "audit", label: "Activity" },
-        { id: "organizations", label: "Organizations" }
+        { id: "audit", label: "Activity" }
       );
     }
     return items;
@@ -88,7 +86,6 @@ export default function AdminDashboardPanel({ user }: AdminDashboardPanelProps) 
       {section === "providers" && platformAdmin && <AdminProviders />}
       {section === "users" && platformAdmin && <AdminUsers />}
       {section === "audit" && platformAdmin && <AdminAuditLog />}
-      {section === "organizations" && platformAdmin && <AdminOrganizations />}
     </div>
   );
 }

@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import { listAuditLogs, type AuditLogEntry } from "@/lib/api";
 import { formatDateTime, formatStatusLabel } from "@/lib/format";
 
+function subjectLabel(entry: AuditLogEntry) {
+  if (entry.resource_label) return entry.resource_label;
+  if (entry.resource_id) return `${entry.resource_type} · ${entry.resource_id.slice(0, 8)}…`;
+  return entry.resource_type;
+}
+
 export default function AdminAuditLog() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
   const [total, setTotal] = useState(0);
@@ -26,37 +32,46 @@ export default function AdminAuditLog() {
       {loading && <p className="text-sm text-ethio-ink-muted">Loading activity…</p>}
 
       {!loading && logs.length === 0 && (
-        <div className="card-vibrant p-8 text-center">
-          <p className="font-semibold text-ethio-ink">No activity yet</p>
-          <p className="mt-2 text-sm text-ethio-ink-muted">Platform actions will be recorded here.</p>
-        </div>
+        <p className="text-sm text-ethio-ink-muted">No activity yet. Platform actions will be recorded here.</p>
       )}
 
       {!loading && logs.length > 0 && (
-        <p className="mb-3 text-sm text-ethio-ink-muted">Latest {logs.length} of {total} events</p>
+        <>
+          <p className="mb-3 text-sm text-ethio-ink-muted">Latest {logs.length} of {total} events</p>
+          <div className="overflow-x-auto rounded-lg border border-ethio-border">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead>
+                <tr className="border-b border-ethio-border bg-ethio-surface text-left text-xs font-semibold uppercase tracking-wide text-ethio-ink-muted">
+                  <th className="px-3 py-2 font-semibold">When</th>
+                  <th className="px-3 py-2 font-semibold">Action</th>
+                  <th className="px-3 py-2 font-semibold">Subject</th>
+                  <th className="px-3 py-2 font-semibold">Details</th>
+                  <th className="px-3 py-2 font-semibold">By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((entry) => (
+                  <tr key={entry.id} className="border-b border-ethio-border last:border-0">
+                    <td className="whitespace-nowrap px-3 py-2 text-xs text-ethio-ink-muted">
+                      {formatDateTime(entry.created_at)}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 font-medium text-ethio-ink">
+                      {formatStatusLabel(entry.action)}
+                    </td>
+                    <td className="px-3 py-2 text-ethio-ink-muted">{subjectLabel(entry)}</td>
+                    <td className="max-w-xs truncate px-3 py-2 text-ethio-ink-muted" title={entry.details || undefined}>
+                      {entry.details || "—"}
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2 text-ethio-ink-muted">
+                      {entry.actor_name || entry.actor_email || "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
-
-      <div className="space-y-2">
-        {logs.map((entry) => (
-          <article key={entry.id} className="card-vibrant p-4">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <p className="font-semibold text-ethio-ink">{formatStatusLabel(entry.action)}</p>
-              <time className="text-xs text-ethio-ink-muted">{formatDateTime(entry.created_at)}</time>
-            </div>
-            <p className="mt-1 text-sm text-ethio-ink-muted">
-              {entry.resource_label ||
-                entry.actor_name ||
-                (entry.resource_id ? `${entry.resource_type} · ${entry.resource_id.slice(0, 8)}…` : entry.resource_type)}
-            </p>
-            {entry.details && <p className="mt-2 text-sm text-ethio-ink">{entry.details}</p>}
-            {(entry.actor_name || entry.actor_email) && (
-              <p className="mt-2 text-xs text-ethio-ink-muted">
-                By {entry.actor_name || entry.actor_email}
-              </p>
-            )}
-          </article>
-        ))}
-      </div>
     </div>
   );
 }

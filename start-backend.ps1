@@ -9,12 +9,14 @@ if (-not (Test-Path ".env")) {
 
 $env:FLASK_APP = "wsgi:app"
 
-$port5050 = Get-NetTCPConnection -LocalPort 5050 -State Listen -ErrorAction SilentlyContinue
-if ($port5050) {
-    $stalePid = $port5050.OwningProcess | Select-Object -First 1
+$stalePids = Get-NetTCPConnection -LocalPort 5050 -State Listen -ErrorAction SilentlyContinue |
+    Select-Object -ExpandProperty OwningProcess -Unique
+foreach ($stalePid in $stalePids) {
     Write-Host "Stopping stale process on port 5050 (PID $stalePid)..."
     Stop-Process -Id $stalePid -Force -ErrorAction SilentlyContinue
-    Start-Sleep -Seconds 1
+}
+if ($stalePids) {
+    Start-Sleep -Seconds 2
 }
 
 Write-Host "Starting API at http://127.0.0.1:5050/api/v1"

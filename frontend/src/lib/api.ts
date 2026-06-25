@@ -159,7 +159,9 @@ async function apiFetch<T>(
     if (err instanceof Error && err.name === "AbortError") {
       throw new Error("Request timed out — is the backend running on port 5050?");
     }
-    throw new Error("Cannot reach the API. Start the backend with: cd backend && python run.py");
+    throw new Error(
+      "Cannot reach the API. From the project root run: .\\start-backend.ps1 (or cd backend; python run.py)"
+    );
   } finally {
     clearTimeout(timeoutId);
   }
@@ -400,16 +402,6 @@ export interface AuditLogEntry {
   created_at: string;
 }
 
-export interface AdminOrganization {
-  id: string;
-  name: string;
-  slug: string;
-  timezone: string;
-  is_active: boolean;
-  member_count: number;
-  created_at: string;
-}
-
 export function getAdminOverview() {
   return apiFetch<AdminOverview>("/admin/overview", {}, true);
 }
@@ -436,6 +428,14 @@ export function updateAdminUser(userId: string, payload: { is_active: boolean })
     method: "PATCH",
     body: JSON.stringify(payload),
   }, true);
+}
+
+export function deleteAdminUser(userId: string) {
+  return apiFetch<{ ok: boolean; deleted_user_id: string; email: string; full_name: string }>(
+    `/admin/users/${userId}`,
+    { method: "DELETE" },
+    true
+  );
 }
 
 export const GRANTABLE_ADMIN_ROLES = [
@@ -477,20 +477,6 @@ export function listAuditLogs(params?: { limit?: number; offset?: number }) {
     {},
     true
   );
-}
-
-export function listAdminOrganizations() {
-  return apiFetch<{ organizations: AdminOrganization[] }>("/admin/organizations", {}, true);
-}
-
-export function updateAdminOrganization(
-  orgId: string,
-  payload: { name?: string; timezone?: string; is_active?: boolean }
-) {
-  return apiFetch<{ organization: AdminOrganization }>(`/admin/organizations/${orgId}`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  }, true);
 }
 
 export function getHealth() {

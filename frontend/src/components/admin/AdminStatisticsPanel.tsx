@@ -117,7 +117,7 @@ export default function AdminStatisticsPanel() {
 
   if (!stats) return null;
 
-  const { users, appointments, revenue, organizations, platform, trends, top_providers } = stats;
+  const { users, appointments, revenue, trends, top_providers } = stats;
   const cancellationRate =
     appointments.total > 0 ? Math.round((appointments.cancelled / appointments.total) * 100) : 0;
   const completionRate =
@@ -148,7 +148,7 @@ export default function AdminStatisticsPanel() {
         />
         <StatCard label="Registered users" value={users.total} hint={`${users.new_30d} joined in 30 days`} />
         <StatCard
-          label="Active providers"
+          label="Active counselors"
           value={users.counselors.approved + users.trainees.approved}
           hint={`${users.counselors.pending + users.trainees.pending} pending approval`}
         />
@@ -239,15 +239,6 @@ export default function AdminStatisticsPanel() {
               ]}
             />
           </div>
-        </div>
-      </Section>
-
-      <Section title="Organizations & platform">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Organizations" value={organizations.total} hint={`${organizations.active} active`} />
-          <StatCard label="Pricing rules" value={platform.session_pricing_rules} />
-          <StatCard label="Audit events (7d)" value={platform.audit_events_7d} hint={`${platform.audit_events_24h} in 24h`} />
-          <StatCard label="Audit events (30d)" value={platform.audit_events_30d} />
         </div>
       </Section>
 

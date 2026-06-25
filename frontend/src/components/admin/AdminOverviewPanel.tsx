@@ -30,9 +30,9 @@ export default function AdminOverviewPanel({
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Pending approvals" value={pendingTotal} hint="Counselors + trainees awaiting review" />
-        <StatCard label="Active providers" value={approvedTotal} hint="Approved counselors and trainees" />
+        <StatCard label="Active counselors" value={approvedTotal} hint="Approved counselors and trainees" />
         <StatCard label="Users" value={stats.active_users} hint={`${stats.total_users} total registered`} />
-        <StatCard label="Organizations" value={stats.organizations} hint={`${stats.audit_events_24h} audit events (24h)`} />
+        <StatCard label="Audit events (24h)" value={stats.audit_events_24h} hint="Recent platform activity" />
       </div>
 
       {onGoToStatistics && (

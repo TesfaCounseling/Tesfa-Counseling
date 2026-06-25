@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import {
   GRANTABLE_ADMIN_ROLES,
+  deleteAdminUser,
+  getMe,
   grantAdminUserRole,
   listAdminUsers,
   revokeAdminUserRole,
@@ -27,6 +29,13 @@ export default function AdminUsers() {
   const [actionId, setActionId] = useState<string | null>(null);
   const [grantForUser, setGrantForUser] = useState<string | null>(null);
   const [grantRole, setGrantRole] = useState("supervisor");
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getMe()
+      .then((data) => setCurrentUserId(data.user.id))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -78,6 +87,26 @@ export default function AdminUsers() {
       updateUserInList(result.user);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not remove role");
+    } finally {
+      setActionId(null);
+    }
+  }
+
+  async function handleDelete(user: AdminUser) {
+    const confirmed = window.confirm(
+      `Permanently delete ${user.full_name} (${user.email})?\n\nThis removes their account, sessions, and related data. This cannot be undone.`
+    );
+    if (!confirmed) return;
+
+    setActionId(`delete:${user.id}`);
+    setError("");
+    try {
+      await deleteAdminUser(user.id);
+      setUsers((prev) => prev.filter((u) => u.id !== user.id));
+      setTotal((prev) => Math.max(0, prev - 1));
+      if (grantForUser === user.id) setGrantForUser(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete user");
     } finally {
       setActionId(null);
     }
@@ -137,12 +166,7 @@ export default function AdminUsers() {
                     <p className="mt-2 text-xs text-ethio-ink-muted">
                       Account roles:{" "}
                       {otherRoles
-                        .map(
-                          (r) =>
-                            `${formatStatusLabel(r.role)}${
-                              r.organization_name ? ` (${r.organization_name})` : ""
-                            }`
-                        )
+                        .map((r) => formatStatusLabel(r.role))
                         .join(", ")}
                     </p>
                   )}
@@ -160,12 +184,7 @@ export default function AdminUsers() {
                             key={`${r.role}-${r.organization_id}`}
                             className="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-ethio-surface px-3 py-2 text-sm"
                           >
-                            <span>
-                              <span className="font-semibold text-ethio-ink">{roleLabel(r.role)}</span>
-                              {r.organization_name && (
-                                <span className="text-ethio-ink-muted"> · {r.organization_name}</span>
-                              )}
-                            </span>
+                            <span className="font-semibold text-ethio-ink">{roleLabel(r.role)}</span>
                             <button
                               type="button"
                               onClick={() => handleRevoke(user, r.role)}
@@ -200,11 +219,6 @@ export default function AdminUsers() {
                           ))}
                         </select>
                       </label>
-                      {grantRole === "platform_admin" && (
-                        <p className="mt-2 text-xs text-ethio-ink-muted">
-                          Platform admin access is granted on the Platform organization automatically.
-                        </p>
-                      )}
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           type="button"
@@ -253,6 +267,16 @@ export default function AdminUsers() {
                   >
                     {actionId === user.id ? "Saving…" : user.is_active ? "Disable account" : "Enable account"}
                   </button>
+                  {currentUserId !== user.id && (
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(user)}
+                      disabled={actionId === `delete:${user.id}`}
+                      className="text-sm font-semibold text-ethio-red disabled:opacity-60"
+                    >
+                      {actionId === `delete:${user.id}` ? "Deleting…" : "Delete user"}
+                    </button>
+                  )}
                 </div>
               </div>
             </article>

@@ -22,6 +22,8 @@ build/
 
 # Database
 *.db
+*.db-wal
+*.db-shm
 instance/
 
 # IDE
@@ -38,3 +40,6 @@ Thumbs.db
 
 # Migrations cache
 backend/migrations/versions/__pycache__/
+
+# Local Netlify folder
+.netlify
