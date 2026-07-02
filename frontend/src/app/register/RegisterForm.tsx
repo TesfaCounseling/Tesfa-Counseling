@@ -1,52 +1,55 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import AuthShell from "@/components/AuthShell";
-import { registerUser, type UserRole } from "@/lib/api";
+import { useLanguage } from "@/components/LanguageProvider";
+import { isAppLanguage, type AppLanguage } from "@/lib/i18n";
+import { registerUser } from "@/lib/api";
 
-const ROLE_COPY: Record<
-  UserRole,
-  { title: string; subtitle: string; submitLabel: string }
-> = {
-  client: {
-    title: "Find a counselor",
-    subtitle: "Create a client account to browse counselors and book sessions",
-    submitLabel: "Create client account",
-  },
-  therapist: {
-    title: "Join as a counselor",
-    subtitle: "Apply to offer counseling services on the platform",
-    submitLabel: "Apply as counselor",
-  },
-  trainee: {
-    title: "Join as a trainee",
-    subtitle: "Register as a counseling trainee under supervision",
-    submitLabel: "Apply as trainee",
-  },
-};
+type RegisterRole = "client" | "therapist";
 
 type RegisterFormProps = {
-  defaultRole: UserRole;
+  defaultRole: RegisterRole;
   lockRole?: boolean;
 };
 
 export default function RegisterForm({ defaultRole, lockRole = false }: RegisterFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const roleParam = searchParams.get("role") as UserRole | null;
-  const resolvedDefault =
-    roleParam && ["client", "therapist", "trainee"].includes(roleParam) ? roleParam : defaultRole;
+  const { t, language, setLanguage } = useLanguage();
+  const roleParam = searchParams.get("role");
+  const nextPath = searchParams.get("next");
+  const safeNext =
+    nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/dashboard";
+  const resolvedDefault: RegisterRole =
+    roleParam === "client" || roleParam === "therapist" ? roleParam : defaultRole;
 
-  const [role, setRole] = useState<UserRole>(resolvedDefault);
+  const [role, setRole] = useState<RegisterRole>(resolvedDefault);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [preferredLanguage, setPreferredLanguage] = useState<AppLanguage>(language);
 
   useEffect(() => {
     setRole(resolvedDefault);
   }, [resolvedDefault]);
 
-  const copy = ROLE_COPY[role];
+  useEffect(() => {
+    setPreferredLanguage(language);
+  }, [language]);
+
+  const copy =
+    role === "client"
+      ? {
+          title: t("register.client.title"),
+          subtitle: t("register.client.subtitle"),
+          submitLabel: t("register.client.submit"),
+        }
+      : {
+          title: t("register.therapist.title"),
+          subtitle: t("register.therapist.subtitle"),
+          submitLabel: t("register.therapist.submit"),
+        };
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -62,17 +65,20 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
         last_name: String(form.get("last_name")),
         role,
       };
-      if (role !== "client") {
+      if (role === "client") {
+        payload.preferred_language = preferredLanguage;
+      } else {
         payload.organization_name = String(form.get("organization_name") || "");
         payload.languages = String(form.get("languages") || "").trim();
       }
-      if (role === "trainee") {
-        payload.program_name = String(form.get("program_name") || "").trim();
+      if (role === "therapist") {
+        payload.specializations = String(form.get("specializations") || "").trim();
       }
       const result = await registerUser(payload);
       localStorage.setItem("access_token", result.access_token);
       localStorage.setItem("refresh_token", result.refresh_token);
-      router.push("/dashboard");
+      setLanguage(preferredLanguage);
+      router.push(role === "client" ? safeNext : "/dashboard");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
     } finally {
@@ -88,38 +94,32 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
             I am a
             <select
               value={role}
-              onChange={(e) => setRole(e.target.value as UserRole)}
+              onChange={(e) => setRole(e.target.value as RegisterRole)}
               className="input-field"
             >
               <option value="client">Client seeking counseling</option>
               <option value="therapist">Licensed counselor</option>
-              <option value="trainee">Counseling trainee</option>
             </select>
           </label>
         ) : (
           <p className="alert-success font-medium">
-            Registering as:{" "}
-            {role === "client"
-              ? "Client"
-              : role === "therapist"
-                ? "Licensed counselor"
-                : "Counseling trainee"}
+            Registering as: {role === "client" ? "Client" : "Licensed counselor"}
           </p>
         )}
 
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <label className="block text-sm font-medium text-ethio-ink">
-            First name
+            {t("common.firstName")}
             <input name="first_name" autoComplete="given-name" required className="input-field" />
           </label>
           <label className="block text-sm font-medium text-ethio-ink">
-            Last name
+            {t("common.lastName")}
             <input name="last_name" autoComplete="family-name" required className="input-field" />
           </label>
         </div>
 
         <label className="block text-sm font-medium text-ethio-ink">
-          Email
+          {t("common.email")}
           <input
             name="email"
             type="email"
@@ -131,7 +131,7 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
         </label>
 
         <label className="block text-sm font-medium text-ethio-ink">
-          Password (min 8 characters)
+          {t("register.passwordHint")}
           <input
             name="password"
             type="password"
@@ -142,30 +142,51 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
           />
         </label>
 
-        {(role === "therapist" || role === "trainee") && (
+        {role === "client" && (
+          <label className="block text-sm font-medium text-ethio-ink">
+            {t("register.preferredLanguage")}
+            <select
+              value={preferredLanguage}
+              onChange={(e) => setPreferredLanguage(e.target.value as AppLanguage)}
+              className="input-field"
+            >
+              <option value="en">{t("lang.english")}</option>
+              <option value="am">{t("lang.amharic")}</option>
+            </select>
+          </label>
+        )}
+
+        {role === "therapist" && (
           <>
+            <label className="block text-sm font-medium text-ethio-ink">
+              Specialties
+              <input
+                name="specializations"
+                required
+                placeholder="e.g. Anxiety, couples therapy, grief, trauma"
+                className="input-field"
+              />
+              <span className="mt-1 block text-xs font-normal text-ethio-ink-muted">
+                Separate multiple specialties with commas. These appear on your public counselor profile.
+              </span>
+            </label>
             <label className="block text-sm font-medium text-ethio-ink">
               Languages you offer sessions in
               <input
                 name="languages"
                 required
-                placeholder="e.g. English, Spanish, Amharic"
+                placeholder="e.g. English, Amharic"
+                defaultValue="English, Amharic"
                 className="input-field"
               />
               <span className="mt-1 block text-xs font-normal text-ethio-ink-muted">
-                Separate multiple languages with commas. These appear in the Find a counselor filter.
+                Separate multiple languages with commas. Include Amharic (አማርኛ) if you offer it.
               </span>
             </label>
             <label className="block text-sm font-medium text-ethio-ink">
               Organization / clinic name
               <input name="organization_name" autoComplete="organization" className="input-field" />
             </label>
-            {role === "trainee" && (
-              <label className="block text-sm font-medium text-ethio-ink">
-                Training program
-                <input name="program_name" placeholder="e.g. MA Counseling — State University" className="input-field" />
-              </label>
-            )}
           </>
         )}
 
@@ -176,51 +197,37 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
         )}
 
         <button type="submit" disabled={loading} className="btn-primary">
-          {loading ? "Please wait…" : copy.submitLabel}
+          {loading ? t("common.pleaseWait") : copy.submitLabel}
         </button>
 
         <p className="text-center text-sm text-ethio-ink-muted">
-          Already have an account?{" "}
-          <a href="/login" className="link-inline">
-            Log in
+          {t("register.alreadyHave")}{" "}
+          <a
+            href={
+              nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
+                ? `/login?next=${encodeURIComponent(nextPath)}`
+                : "/login"
+            }
+            className="link-inline"
+          >
+            {t("nav.login")}
           </a>
         </p>
 
         {lockRole && (
           <p className="text-center text-sm text-ethio-ink-muted">
-            {role === "client" && (
+            {role === "client" ? (
               <>
-                Are you a counselor or trainee?{" "}
-                <a href="/register/counselor" className="link-inline">
-                  Counselor
-                </a>
-                {" · "}
-                <a href="/register/trainee" className="link-inline">
-                  Trainee
-                </a>
-              </>
-            )}
-            {role === "therapist" && (
-              <>
-                In training under supervision?{" "}
-                <a href="/register/trainee" className="link-inline">
-                  Apply as trainee
-                </a>
-                {" · "}
-                <a href="/register/client" className="link-inline">
-                  Need counseling?
-                </a>
-              </>
-            )}
-            {role === "trainee" && (
-              <>
-                Already licensed?{" "}
+                Are you a counselor?{" "}
                 <a href="/register/counselor" className="link-inline">
                   Apply as counselor
                 </a>
-                {" · "}
+              </>
+            ) : (
+              <>
+                Need counseling?{" "}
                 <a href="/register/client" className="link-inline">
-                  Need counseling?
+                  Sign up as client
                 </a>
               </>
             )}

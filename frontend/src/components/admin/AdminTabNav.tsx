@@ -4,6 +4,7 @@ export type AdminSection =
   | "approvals"
   | "providers"
   | "users"
+  | "feedback"
   | "audit";
 
 type Tab = { id: AdminSection; label: string; badge?: number };

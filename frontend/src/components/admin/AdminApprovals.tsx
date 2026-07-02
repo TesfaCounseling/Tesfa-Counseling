@@ -3,21 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   approveTherapist,
-  approveTrainee,
-  listAdminSupervisors,
   listPendingTherapists,
-  listPendingTrainees,
   rejectTherapist,
-  rejectTrainee,
-  type AdminSupervisor,
   type AuthUser,
   type PendingTherapist,
-  type PendingTrainee,
 } from "@/lib/api";
-import { canReviewCounselors, canReviewTrainees } from "@/lib/roles";
+import { canReviewCounselors } from "@/lib/roles";
 import { formatDateTime } from "@/lib/format";
-
-type ApprovalKind = "counselors" | "trainees";
 
 type AdminApprovalsProps = {
   user: AuthUser;
@@ -26,56 +18,35 @@ type AdminApprovalsProps = {
 
 export default function AdminApprovals({ user, onPendingChange }: AdminApprovalsProps) {
   const showCounselors = canReviewCounselors(user);
-  const showTrainees = canReviewTrainees(user);
-  const [subTab, setSubTab] = useState<ApprovalKind>(showCounselors ? "counselors" : "trainees");
   const [therapists, setTherapists] = useState<PendingTherapist[]>([]);
-  const [trainees, setTrainees] = useState<PendingTrainee[]>([]);
   const [error, setError] = useState("");
   const [actionId, setActionId] = useState<string | null>(null);
-  const [rejectTarget, setRejectTarget] = useState<{ id: string; kind: ApprovalKind } | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
-  const [supervisors, setSupervisors] = useState<AdminSupervisor[]>([]);
-  const [traineeSupervisors, setTraineeSupervisors] = useState<Record<string, string>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const loadQueues = useCallback(async () => {
     setError("");
-    const tasks: Promise<void>[] = [];
     if (showCounselors) {
-      tasks.push(listPendingTherapists().then((d) => setTherapists(d.therapists)));
+      const data = await listPendingTherapists();
+      setTherapists(data.therapists);
     }
-    if (showTrainees) {
-      tasks.push(listPendingTrainees().then((d) => setTrainees(d.trainees)));
-      tasks.push(listAdminSupervisors().then((d) => setSupervisors(d.supervisors)));
-    }
-    await Promise.all(tasks);
-  }, [showCounselors, showTrainees]);
+  }, [showCounselors]);
 
   useEffect(() => {
     loadQueues().catch((err) => setError(err instanceof Error ? err.message : "Failed to load approvals"));
   }, [loadQueues]);
 
   useEffect(() => {
-    onPendingChange?.(therapists.length + trainees.length);
-  }, [therapists.length, trainees.length, onPendingChange]);
+    onPendingChange?.(therapists.length);
+  }, [therapists.length, onPendingChange]);
 
-  async function handleApprove(kind: ApprovalKind, id: string) {
+  async function handleApprove(id: string) {
     setActionId(id);
     setError("");
     try {
-      if (kind === "counselors") {
-        await approveTherapist(id);
-        setTherapists((prev) => prev.filter((p) => p.id !== id));
-      } else {
-        const supervisorId = traineeSupervisors[id];
-        if (!supervisorId && supervisors.length > 0) {
-          setError("Select a supervisor before approving a trainee.");
-          setActionId(null);
-          return;
-        }
-        await approveTrainee(id, supervisorId);
-        setTrainees((prev) => prev.filter((p) => p.id !== id));
-      }
+      await approveTherapist(id);
+      setTherapists((prev) => prev.filter((p) => p.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Approval failed");
     } finally {
@@ -90,16 +61,11 @@ export default function AdminApprovals({ user, onPendingChange }: AdminApprovals
       setError("Please enter a rejection reason.");
       return;
     }
-    setActionId(rejectTarget.id);
+    setActionId(rejectTarget);
     setError("");
     try {
-      if (rejectTarget.kind === "counselors") {
-        await rejectTherapist(rejectTarget.id, reason);
-        setTherapists((prev) => prev.filter((p) => p.id !== rejectTarget.id));
-      } else {
-        await rejectTrainee(rejectTarget.id, reason);
-        setTrainees((prev) => prev.filter((p) => p.id !== rejectTarget.id));
-      }
+      await rejectTherapist(rejectTarget, reason);
+      setTherapists((prev) => prev.filter((p) => p.id !== rejectTarget));
       setRejectTarget(null);
       setRejectReason("");
     } catch (err) {
@@ -109,42 +75,23 @@ export default function AdminApprovals({ user, onPendingChange }: AdminApprovals
     }
   }
 
-  const list = subTab === "counselors" ? therapists : trainees;
+  if (!showCounselors) {
+    return (
+      <p className="text-sm text-ethio-ink-muted">You do not have permission to review counselor applications.</p>
+    );
+  }
 
   return (
     <div>
-      {showCounselors && showTrainees && (
-        <div className="mb-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setSubTab("counselors")}
-            className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${
-              subTab === "counselors" ? "bg-ethio-surface text-ethio-green-dark" : "text-ethio-ink-muted"
-            }`}
-          >
-            Counselors {therapists.length > 0 && `(${therapists.length})`}
-          </button>
-          <button
-            type="button"
-            onClick={() => setSubTab("trainees")}
-            className={`rounded-lg px-3 py-1.5 text-sm font-semibold ${
-              subTab === "trainees" ? "bg-ethio-surface text-ethio-green-dark" : "text-ethio-ink-muted"
-            }`}
-          >
-            Trainees {trainees.length > 0 && `(${trainees.length})`}
-          </button>
-        </div>
-      )}
-
       {error && <p className="mb-4 alert-error">{error}</p>}
 
       <section className="space-y-4">
-        {list.length === 0 ? (
+        {therapists.length === 0 ? (
           <div className="card-vibrant p-8 text-center">
             <p className="text-lg font-semibold text-ethio-ink">No pending applications</p>
-            <p className="mt-2 text-sm text-ethio-ink-muted">New provider registrations will appear here.</p>
+            <p className="mt-2 text-sm text-ethio-ink-muted">New counselor registrations will appear here.</p>
           </div>
-        ) : subTab === "counselors" ? (
+        ) : (
           therapists.map((profile) => (
             <article key={profile.id} className="card-vibrant p-5">
               <Header name={profile.full_name} email={profile.email} createdAt={profile.created_at} />
@@ -160,14 +107,14 @@ export default function AdminApprovals({ user, onPendingChange }: AdminApprovals
                   rows={[
                     ["Organization", profile.organization_name],
                     ["Languages", profile.languages],
-                    ["Specializations", profile.specializations],
+                    ["Specialties", profile.specializations],
                     ["Bio", profile.bio],
                     ["License number", profile.license_number],
                     ["License authority", profile.license_authority],
                   ]}
                 />
               )}
-              {rejectTarget?.id === profile.id && rejectTarget.kind === "counselors" ? (
+              {rejectTarget === profile.id ? (
                 <RejectForm
                   id={profile.id}
                   reason={rejectReason}
@@ -181,73 +128,9 @@ export default function AdminApprovals({ user, onPendingChange }: AdminApprovals
                 />
               ) : (
                 <ActionButtons
-                  onApprove={() => handleApprove("counselors", profile.id)}
+                  onApprove={() => handleApprove(profile.id)}
                   onReject={() => {
-                    setRejectTarget({ id: profile.id, kind: "counselors" });
-                    setRejectReason("");
-                    setError("");
-                  }}
-                  loading={actionId === profile.id}
-                />
-              )}
-            </article>
-          ))
-        ) : (
-          trainees.map((profile) => (
-            <article key={profile.id} className="card-vibrant p-5">
-              <Header name={profile.full_name} email={profile.email} createdAt={profile.created_at} />
-              <button
-                type="button"
-                onClick={() => setExpandedId(expandedId === profile.id ? null : profile.id)}
-                className="mt-3 text-sm font-semibold text-ethio-green-dark"
-              >
-                {expandedId === profile.id ? "Hide application" : "View application"}
-              </button>
-              {expandedId === profile.id && (
-                <ApplicationDetails
-                  rows={[
-                    ["Organization", profile.organization_name],
-                    ["Training program", profile.program_name],
-                    ["Languages", profile.languages],
-                  ]}
-                />
-              )}
-              {supervisors.length > 0 && (
-                <label className="mt-4 block text-sm font-medium text-ethio-ink">
-                  Assign supervisor
-                  <select
-                    value={traineeSupervisors[profile.id] || ""}
-                    onChange={(e) =>
-                      setTraineeSupervisors((prev) => ({ ...prev, [profile.id]: e.target.value }))
-                    }
-                    className="input-field mt-1"
-                  >
-                    <option value="">Select supervisor…</option>
-                    {supervisors.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.full_name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              )}
-              {rejectTarget?.id === profile.id && rejectTarget.kind === "trainees" ? (
-                <RejectForm
-                  id={profile.id}
-                  reason={rejectReason}
-                  onReasonChange={setRejectReason}
-                  onConfirm={handleRejectConfirm}
-                  onCancel={() => {
-                    setRejectTarget(null);
-                    setRejectReason("");
-                  }}
-                  loading={actionId === profile.id}
-                />
-              ) : (
-                <ActionButtons
-                  onApprove={() => handleApprove("trainees", profile.id)}
-                  onReject={() => {
-                    setRejectTarget({ id: profile.id, kind: "trainees" });
+                    setRejectTarget(profile.id);
                     setRejectReason("");
                     setError("");
                   }}

@@ -66,7 +66,7 @@ export default function ProviderNotesPage() {
       <PageHero
         eyebrow="Clinical documentation"
         title="Session notes"
-        subtitle="Write SOAP notes after sessions. Trainee notes require supervisor cosign before they are finalized."
+        subtitle="Document each session with Subjective, Objective, Assessment, and Plan (SOAP)."
         backHref="/dashboard"
         backLabel="Dashboard"
       />

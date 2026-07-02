@@ -283,6 +283,21 @@ def get_or_update_note(note_id):
     return jsonify({"note": _note_to_dict(note)})
 
 
+def _missing_soap_sections(note: ClinicalNote) -> list[str]:
+    labels = {
+        "subjective": "Subjective",
+        "objective": "Objective",
+        "assessment": "Assessment",
+        "plan": "Plan",
+    }
+    missing = []
+    for field, label in labels.items():
+        value = getattr(note, field)
+        if not value or not str(value).strip():
+            missing.append(label)
+    return missing
+
+
 @clinical_notes_bp.route("/<uuid:note_id>/submit", methods=["POST"])
 @jwt_required()
 def submit_note(note_id):
@@ -293,8 +308,14 @@ def submit_note(note_id):
     if note.status != ClinicalNoteStatus.DRAFT:
         return jsonify({"error": "Conflict", "message": "Note already submitted"}), 409
 
-    if not any([note.subjective, note.objective, note.assessment, note.plan]):
-        return jsonify({"error": "ValidationError", "message": "Add note content before submitting"}), 400
+    missing = _missing_soap_sections(note)
+    if missing:
+        return jsonify(
+            {
+                "error": "ValidationError",
+                "message": f"Complete all SOAP sections before submitting: {', '.join(missing)}",
+            }
+        ), 400
 
     now = datetime.now(timezone.utc)
     note.submitted_at = now

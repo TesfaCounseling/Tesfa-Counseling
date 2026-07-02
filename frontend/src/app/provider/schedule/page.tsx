@@ -18,7 +18,6 @@ import {
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 function formatPrice(amountCents: number, currency: string) {
-  if (amountCents === 0) return "Free (pro bono)";
   return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(amountCents / 100);
 }
 
@@ -80,8 +79,8 @@ export default function ProviderSchedulePage() {
     setMessage("");
     const form = new FormData(e.currentTarget);
     const dollars = Number(form.get("price_dollars"));
-    if (Number.isNaN(dollars) || dollars < 0) {
-      setError("Enter a valid price in dollars (0 for free sessions).");
+    if (Number.isNaN(dollars) || dollars <= 0) {
+      setError("Enter a valid price greater than zero.");
       return;
     }
     try {
@@ -212,24 +211,22 @@ export default function ProviderSchedulePage() {
               <input
                 name="price_dollars"
                 type="number"
-                min={0}
+                min={0.01}
                 step={0.01}
-                defaultValue={50}
+                defaultValue={25}
                 required
                 className="input-field"
               />
             </div>
             <span className="mt-1 block text-xs font-normal text-ethio-ink-muted">
-              Enter 0 for free / pro bono sessions. For sliding scale, enter your full standard rate — clients choose a tier at booking.
+              For sliding scale, enter your full standard rate — clients can choose full or reduced at booking.
             </span>
           </label>
           <label className="block text-sm font-medium">
             Pricing type
             <select name="pricing_type" className="input-field">
               <option value="standard">Standard rate</option>
-              <option value="pro_bono">Pro bono (free)</option>
               <option value="sliding_scale">Sliding scale</option>
-              <option value="trainee_rate">Trainee rate</option>
             </select>
           </label>
           <button type="submit" className="btn-secondary">

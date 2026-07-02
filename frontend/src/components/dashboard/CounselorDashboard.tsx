@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Appointment, AuthUser, ProviderProfile } from "@/lib/api";
 import { getMyProviderProfile } from "@/lib/api";
 import { appointmentTimezoneLabel, formatAppointmentWhen, formatMoney } from "@/lib/format";
+import ClientScheduleAlerts from "@/components/dashboard/ClientScheduleAlerts";
 
 type CounselorDashboardProps = {
   user: AuthUser | null;
@@ -12,6 +13,7 @@ type CounselorDashboardProps = {
   loadingSessions: boolean;
   error: string;
   onCancel: (id: string) => void;
+  onDismissScheduleAlert: (id: string) => void;
 };
 
 export default function CounselorDashboard({
@@ -20,6 +22,7 @@ export default function CounselorDashboard({
   loadingSessions,
   error,
   onCancel,
+  onDismissScheduleAlert,
 }: CounselorDashboardProps) {
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
 
@@ -29,6 +32,8 @@ export default function CounselorDashboard({
       .then((data) => setProfile(data.profile))
       .catch(() => {});
   }, [user?.account_type]);
+
+  const providerAppointments = appointments.filter((appt) => appt.provider_id === user?.id);
 
   return (
     <>
@@ -79,6 +84,12 @@ export default function CounselorDashboard({
         )}
       </div>
 
+      <ClientScheduleAlerts
+        appointments={providerAppointments}
+        onDismiss={onDismissScheduleAlert}
+        perspective="provider"
+      />
+
       <section className="mt-10">
         <h2 className="text-lg font-bold text-ethio-ink">Upcoming sessions</h2>
         {loadingSessions && <p className="mt-3 text-sm text-ethio-ink-muted">Loading sessions…</p>}
@@ -93,20 +104,17 @@ export default function CounselorDashboard({
           </div>
         )}
         <div className="mt-4 space-y-3">
-          {appointments.map((appt) => (
+          {providerAppointments.map((appt) => (
             <div key={appt.id} className="card-vibrant p-4">
               <p className="font-semibold text-ethio-ink">{formatAppointmentWhen(appt, true)}</p>
               <p className="text-xs text-ethio-ink-muted">{appointmentTimezoneLabel(appt, true)}</p>
               <p className="text-sm text-ethio-ink-muted">
-                {appt.provider_name || "Provider"}
-                {appt.client_name ? ` · ${appt.client_name}` : ""} · {appt.duration_minutes} min · {appt.status}
+                {appt.client_name || "Client"}
+                {" · "}
+                {appt.duration_minutes} min · {appt.status}
                 {appt.session_mode === "audio_only" && " · Audio"}
               </p>
-              {appt.amount_cents === 0 ? (
-                <p className="text-xs font-medium text-ethio-green">Pro bono</p>
-              ) : (
-                <p className="text-xs text-ethio-ink-muted">{formatMoney(appt.amount_cents, appt.currency)}</p>
-              )}
+              <p className="text-xs text-ethio-ink-muted">{formatMoney(appt.amount_cents, appt.currency)}</p>
               <div className="mt-3 flex flex-wrap gap-3">
                 {appt.can_join_video && appt.video_room_url && (
                   <a
@@ -141,7 +149,7 @@ export default function CounselorDashboard({
               </div>
             </div>
           ))}
-          {!loadingSessions && !error && appointments.length === 0 && (
+          {!loadingSessions && !error && providerAppointments.length === 0 && (
             <div className="card-vibrant p-5 text-center">
               <p className="font-medium text-ethio-ink">No upcoming sessions</p>
               <p className="mt-1 text-sm text-ethio-ink-muted">Your schedule is clear for now.</p>

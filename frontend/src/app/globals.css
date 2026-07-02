@@ -168,6 +168,12 @@
     box-shadow: var(--shadow-ethio);
   }
 
+  .btn-cta {
+    @apply inline-flex min-h-[56px] w-full items-center justify-center rounded-2xl px-8 py-4 text-lg font-bold text-white transition active:scale-[0.98] hover:brightness-105 sm:min-w-[280px] sm:w-auto;
+    background-image: var(--ethio-gradient);
+    box-shadow: 0 14px 48px -12px rgba(7, 137, 48, 0.38);
+  }
+
   .btn-secondary {
     @apply inline-flex min-h-[48px] w-full items-center justify-center rounded-xl border-2 px-5 py-3 text-base font-semibold transition active:scale-[0.98];
     background: var(--ethio-gold-warm);
@@ -203,6 +209,19 @@
     background-color: rgba(219, 234, 254, 0.85);
   }
 
+  .btn-nav-home {
+    @apply inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-xl px-3 text-sm font-semibold transition active:scale-[0.98];
+    color: var(--ethio-green-dark);
+    background: var(--ethio-surface-warm);
+    border: 1px solid rgba(7, 137, 48, 0.2);
+  }
+
+  .btn-nav-home:hover {
+    color: var(--ethio-green);
+    background: rgba(212, 237, 218, 0.85);
+    border-color: rgba(7, 137, 48, 0.35);
+  }
+
   .btn-header {
     @apply inline-flex min-h-[44px] items-center justify-center rounded-xl px-3 py-2.5 text-sm font-semibold text-white active:scale-[0.98] hover:brightness-105 sm:px-4 sm:text-base;
     background-image: var(--ethio-gradient);
@@ -234,6 +253,13 @@
     background: rgba(219, 234, 254, 0.9);
     color: var(--ethio-green-dark);
     border: 1px solid rgba(4, 107, 210, 0.2);
+  }
+
+  .alert-info {
+    @apply rounded-xl px-4 py-3 text-sm;
+    background: rgba(254, 243, 199, 0.9);
+    color: #92400e;
+    border: 1px solid rgba(217, 119, 6, 0.25);
   }
 
   .booking-hero,
@@ -284,6 +310,71 @@
 
   .provider-avatar-sm {
     @apply h-12 w-12 text-base rounded-xl;
+  }
+
+  .team-card {
+    @apply relative flex h-full flex-col overflow-hidden rounded-2xl border-2 p-5 transition-all duration-300;
+    background: var(--ethio-surface-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  .team-card:hover {
+    transform: translateY(-3px);
+  }
+
+  .team-card-glow {
+    @apply pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full opacity-0 blur-2xl transition-opacity duration-300;
+  }
+
+  .team-card:hover .team-card-glow {
+    opacity: 1;
+  }
+
+  .team-card--green {
+    border-color: rgba(7, 137, 48, 0.22);
+  }
+
+  .team-card--green:hover {
+    border-color: rgba(7, 137, 48, 0.55);
+    box-shadow: 0 16px 40px -12px rgba(7, 137, 48, 0.22);
+  }
+
+  .team-card--green .team-card-glow {
+    background: rgba(7, 137, 48, 0.28);
+  }
+
+  .team-card--gold {
+    border-color: rgba(252, 209, 22, 0.45);
+    background: linear-gradient(165deg, #fffef8 0%, #fef9e8 100%);
+  }
+
+  .team-card--gold:hover {
+    border-color: rgba(252, 209, 22, 0.85);
+    box-shadow: 0 16px 40px -12px rgba(252, 209, 22, 0.35);
+  }
+
+  .team-card--gold .team-card-glow {
+    background: rgba(252, 209, 22, 0.45);
+  }
+
+  .team-card--red {
+    border-color: rgba(218, 18, 26, 0.18);
+  }
+
+  .team-card--red:hover {
+    border-color: rgba(218, 18, 26, 0.42);
+    box-shadow: 0 16px 40px -12px rgba(218, 18, 26, 0.18);
+  }
+
+  .team-card--red .team-card-glow {
+    background: rgba(218, 18, 26, 0.2);
+  }
+
+  .team-tag-chip {
+    @apply inline-flex rounded-full px-3 py-1 text-xs font-semibold;
+    background: var(--ethio-surface-warm);
+    color: var(--ethio-green-dark);
+    border: 1px solid rgba(7, 137, 48, 0.18);
   }
 
   .provider-badge {

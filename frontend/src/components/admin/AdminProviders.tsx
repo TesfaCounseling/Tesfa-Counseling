@@ -56,7 +56,7 @@ export default function AdminProviders() {
                 <h3 className="font-bold text-ethio-ink">{provider.full_name}</h3>
                 <p className="text-sm text-ethio-ink-muted">{provider.email}</p>
                 <p className="mt-1 text-xs text-ethio-ink-muted">
-                  {provider.type === "therapist" ? "Counselor" : "Trainee"} · Joined {formatDateTime(provider.created_at)}
+                  Counselor · Joined {formatDateTime(provider.created_at)}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -64,11 +64,8 @@ export default function AdminProviders() {
                 {!provider.is_active && <StatusPill label="Account disabled" tone="rejected" />}
               </div>
             </div>
-            {provider.type === "therapist" && provider.specializations && (
+            {provider.specializations && (
               <p className="mt-3 text-sm text-ethio-ink-muted">{provider.specializations}</p>
-            )}
-            {provider.type === "trainee" && provider.program_name && (
-              <p className="mt-3 text-sm text-ethio-ink-muted">Program: {provider.program_name}</p>
             )}
             {provider.approval_status === "approved" && provider.user_id && (
               <Link href={`/counselors/${provider.user_id}/book`} className="link-inline mt-3 inline-block text-sm">

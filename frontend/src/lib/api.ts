@@ -1,6 +1,5 @@
 import { getBrowserTimezone } from "./format";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:5050/api/v1";
+import { getApiUrl } from "./apiBase";
 
 export type UserRole = "therapist" | "trainee" | "client";
 
@@ -12,6 +11,7 @@ export interface AuthUser {
   full_name: string;
   is_email_verified: boolean;
   account_type?: "therapist" | "trainee" | "client" | null;
+  preferred_language?: string | null;
   roles: { role: string; organization_id: string }[];
 }
 
@@ -29,6 +29,7 @@ export interface Provider {
   specializations?: string | null;
   languages?: string | null;
   program_name?: string | null;
+  photo_url?: string | null;
 }
 
 export interface Slot {
@@ -36,6 +37,13 @@ export interface Slot {
   ends_at: string;
   client_local: string;
   client_timezone: string;
+}
+
+export interface ScheduleAlert {
+  type: "booked" | "rescheduled";
+  changed_at: string;
+  changed_by_self: boolean;
+  changed_by_name?: string | null;
 }
 
 export interface Appointment {
@@ -58,6 +66,7 @@ export interface Appointment {
   video_room_url?: string | null;
   session_mode?: "video" | "audio_only";
   can_join_video?: boolean;
+  schedule_alert?: ScheduleAlert;
 }
 
 export interface ProviderProfile {
@@ -70,6 +79,8 @@ export interface ProviderProfile {
   license_authority?: string | null;
   program_name?: string | null;
   approval_status: string;
+  photo_url?: string | null;
+  public_profile_complete?: boolean;
   supervisor_id?: string | null;
   supervisor_name?: string | null;
   supervisor_email?: string | null;
@@ -113,7 +124,7 @@ async function refreshAccessToken(): Promise<string | null> {
   if (!refreshToken) return null;
 
   try {
-    const res = await fetch(`${API_URL}/auth/refresh`, {
+    const res = await fetch(`${getApiUrl()}/auth/refresh`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${refreshToken}`,
@@ -150,7 +161,7 @@ async function apiFetch<T>(
 
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, {
+    res = await fetch(`${getApiUrl()}${path}`, {
       ...options,
       headers,
       signal: controller.signal,
@@ -195,7 +206,9 @@ export function registerUser(payload: {
   role: UserRole;
   organization_name?: string;
   languages?: string;
+  specializations?: string;
   program_name?: string;
+  preferred_language?: string;
 }) {
   return apiFetch<AuthResponse>("/auth/register", {
     method: "POST",
@@ -212,6 +225,14 @@ export function loginUser(email: string, password: string) {
 
 export function getMe() {
   return apiFetch<{ user: AuthUser }>("/auth/me", {}, true);
+}
+
+export function updatePreferredLanguage(language: "en" | "am") {
+  return apiFetch<{ user: AuthUser }>(
+    "/auth/me/preferences",
+    { method: "PATCH", body: JSON.stringify({ preferred_language: language }) },
+    true
+  );
 }
 
 export interface PendingTherapist {
@@ -302,6 +323,24 @@ export interface AdminOverview {
   active_users: number;
   organizations: number;
   audit_events_24h: number;
+  open_client_feedback?: number;
+}
+
+export type FeedbackCategory = "feedback" | "complaint";
+export type FeedbackStatusFilter = "open" | "resolved" | "all";
+
+export interface AdminClientFeedback {
+  id: string;
+  category: FeedbackCategory;
+  subject: string;
+  message: string;
+  status: "open" | "resolved";
+  client_id: string;
+  client_name?: string | null;
+  client_email?: string | null;
+  resolved_at?: string | null;
+  resolved_by_name?: string | null;
+  created_at: string;
 }
 
 export interface AdminDailyCount {
@@ -340,7 +379,6 @@ export interface AdminStatistics {
     completed_cents: number;
     last_30d_cents: number;
     avg_paid_session_cents: number;
-    pro_bono_sessions: number;
     sliding_scale_sessions: number;
     by_currency: { currency: string; total_cents: number; sessions: number }[];
   };
@@ -728,6 +766,47 @@ export function rescheduleAppointment(
   );
 }
 
+export function acknowledgeScheduleChange(id: string) {
+  return apiFetch<{ appointment: Appointment }>(
+    `/appointments/${id}/ack-schedule-change`,
+    { method: "POST" },
+    true
+  );
+}
+
+export function submitClientFeedback(payload: {
+  category: FeedbackCategory;
+  subject: string;
+  message: string;
+}) {
+  return apiFetch<{ feedback: { id: string; category: FeedbackCategory; subject: string; status: string } }>(
+    "/feedback",
+    { method: "POST", body: JSON.stringify(payload) },
+    true
+  );
+}
+
+export function listAdminFeedback(params?: { status?: FeedbackStatusFilter; limit?: number; offset?: number }) {
+  const search = new URLSearchParams();
+  if (params?.status) search.set("status", params.status);
+  if (params?.limit) search.set("limit", String(params.limit));
+  if (params?.offset) search.set("offset", String(params.offset));
+  const q = search.toString();
+  return apiFetch<{ feedback: AdminClientFeedback[]; total: number; open_count: number }>(
+    `/admin/feedback${q ? `?${q}` : ""}`,
+    {},
+    true
+  );
+}
+
+export function updateAdminFeedback(id: string, payload: { status: "open" | "resolved" }) {
+  return apiFetch<{ feedback: AdminClientFeedback }>(
+    `/admin/feedback/${id}`,
+    { method: "PATCH", body: JSON.stringify(payload) },
+    true
+  );
+}
+
 export function getMyProviderProfile() {
   return apiFetch<{ profile: ProviderProfile; user: { full_name: string; email: string } }>(
     "/providers/me",
@@ -742,6 +821,56 @@ export function updateMyProviderProfile(payload: Record<string, string | null | 
     { method: "PATCH", body: JSON.stringify(payload) },
     true
   );
+}
+
+export const MAX_PROVIDER_PHOTO_BYTES = 2 * 1024 * 1024;
+export const ALLOWED_PROVIDER_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+
+export async function uploadMyProviderPhoto(file: File) {
+  const token = getToken();
+  if (!token) throw new Error("Your session expired. Please log in again.");
+
+  if (file.size > MAX_PROVIDER_PHOTO_BYTES) {
+    throw new Error("Photo must be 2 MB or smaller. Try a smaller image.");
+  }
+  if (file.type && !ALLOWED_PROVIDER_PHOTO_TYPES.includes(file.type as (typeof ALLOWED_PROVIDER_PHOTO_TYPES)[number])) {
+    throw new Error("Photo must be JPEG, PNG, or WebP.");
+  }
+
+  const form = new FormData();
+  form.append("photo", file);
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+  let res: Response;
+  try {
+    res = await fetch(`${getApiUrl()}/providers/me/photo`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === "AbortError") {
+      throw new Error("Upload timed out — check your connection and try again.");
+    }
+    throw new Error(
+      "Cannot reach the API to upload your photo. If you're on a phone, use the same Wi‑Fi as your computer and open the site via its network address (not localhost). Also run .\\start-backend.ps1 on the dev machine."
+    );
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) {
+    throw new Error(apiErrorMessage(data, "Photo upload failed"));
+  }
+  return data as { profile: ProviderProfile };
+}
+
+export async function deleteMyProviderPhoto() {
+  return apiFetch<{ profile: ProviderProfile }>("/providers/me/photo", { method: "DELETE" }, true);
 }
 
 export function listAvailabilityRules() {

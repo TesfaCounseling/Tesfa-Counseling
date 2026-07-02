@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { getAdminStatistics, type AdminStatistics } from "@/lib/api";
-import { formatStatusLabel } from "@/lib/format";
+import { formatPricingType, formatStatusLabel } from "@/lib/format";
 
 function formatMoney(cents: number, currency = "USD") {
   return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100);
@@ -149,8 +149,8 @@ export default function AdminStatisticsPanel() {
         <StatCard label="Registered users" value={users.total} hint={`${users.new_30d} joined in 30 days`} />
         <StatCard
           label="Active counselors"
-          value={users.counselors.approved + users.trainees.approved}
-          hint={`${users.counselors.pending + users.trainees.pending} pending approval`}
+          value={users.counselors.approved}
+          hint={`${users.counselors.pending} pending approval`}
         />
       </div>
 
@@ -166,7 +166,6 @@ export default function AdminStatisticsPanel() {
             label="Avg paid session"
             value={revenue.avg_paid_session_cents > 0 ? formatMoney(revenue.avg_paid_session_cents) : "—"}
           />
-          <StatCard label="Pro bono sessions" value={revenue.pro_bono_sessions} />
           <StatCard label="Sliding scale sessions" value={revenue.sliding_scale_sessions} />
         </div>
         {revenue.by_currency.length > 0 && (
@@ -199,7 +198,7 @@ export default function AdminStatisticsPanel() {
           />
           <BreakdownTable
             rows={Object.entries(appointments.by_pricing_type).map(([k, v]) => ({
-              label: formatStatusLabel(k),
+              label: formatPricingType(k),
               value: v,
             }))}
           />
@@ -216,29 +215,15 @@ export default function AdminStatisticsPanel() {
           <StatCard label="New this week" value={users.new_7d} />
           <StatCard label="Platform admins" value={users.platform_admins} />
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div>
-            <p className="mb-2 text-sm font-semibold text-ethio-ink">Counselors</p>
-            <BreakdownTable
-              rows={[
-                { label: "Approved", value: users.counselors.approved },
-                { label: "Pending", value: users.counselors.pending },
-                { label: "Rejected", value: users.counselors.rejected },
-                { label: "Suspended", value: users.counselors.suspended },
-              ]}
-            />
-          </div>
-          <div>
-            <p className="mb-2 text-sm font-semibold text-ethio-ink">Trainees</p>
-            <BreakdownTable
-              rows={[
-                { label: "Approved", value: users.trainees.approved },
-                { label: "Pending", value: users.trainees.pending },
-                { label: "Rejected", value: users.trainees.rejected },
-                { label: "Suspended", value: users.trainees.suspended },
-              ]}
-            />
-          </div>
+        <div className="max-w-md">
+          <BreakdownTable
+            rows={[
+              { label: "Approved", value: users.counselors.approved },
+              { label: "Pending", value: users.counselors.pending },
+              { label: "Rejected", value: users.counselors.rejected },
+              { label: "Suspended", value: users.counselors.suspended },
+            ]}
+          />
         </div>
       </Section>
 

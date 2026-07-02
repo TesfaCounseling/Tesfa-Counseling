@@ -13,10 +13,12 @@ from app.models import (
     ApprovalStatus,
     AvailabilityRule,
     PricingType,
+    ScheduleChangeType,
     SessionMode,
     SessionPricing,
     TraineeIntake,
     User,
+    utcnow,
 )
 from app.services.notifications import (
     notify_appointment_booked,
@@ -34,9 +36,47 @@ def _get_user() -> User | None:
     return db.session.get(User, uuid.UUID(get_jwt_identity()))
 
 
-def _appointment_to_dict(appt: Appointment) -> dict:
-    now = datetime.now(timezone.utc)
+def _schedule_alert_for_client(appt: Appointment, user: User) -> dict | None:
+    if appt.client_id != user.id:
+        return None
+    if not appt.schedule_change_type or not appt.schedule_change_at:
+        return None
+    if appt.client_schedule_ack_at and appt.client_schedule_ack_at >= appt.schedule_change_at:
+        return None
+    changed_by = appt.schedule_change_by
     return {
+        "type": appt.schedule_change_type.value,
+        "changed_at": to_iso_utc(appt.schedule_change_at),
+        "changed_by_self": appt.schedule_change_by_id == user.id,
+        "changed_by_name": changed_by.full_name if changed_by else None,
+    }
+
+
+def _schedule_alert_for_provider(appt: Appointment, user: User) -> dict | None:
+    if appt.provider_id != user.id:
+        return None
+    if not appt.schedule_change_type or not appt.schedule_change_at:
+        return None
+    if appt.provider_schedule_ack_at and appt.provider_schedule_ack_at >= appt.schedule_change_at:
+        return None
+    if appt.schedule_change_by_id == user.id:
+        return None
+    changed_by = appt.schedule_change_by
+    return {
+        "type": appt.schedule_change_type.value,
+        "changed_at": to_iso_utc(appt.schedule_change_at),
+        "changed_by_self": False,
+        "changed_by_name": changed_by.full_name if changed_by else None,
+    }
+
+
+def _schedule_alert_for_user(appt: Appointment, user: User) -> dict | None:
+    return _schedule_alert_for_client(appt, user) or _schedule_alert_for_provider(appt, user)
+
+
+def _appointment_to_dict(appt: Appointment, user: User | None = None) -> dict:
+    now = datetime.now(timezone.utc)
+    payload = {
         "id": str(appt.id),
         "client_id": str(appt.client_id),
         "provider_id": str(appt.provider_id),
@@ -58,6 +98,11 @@ def _appointment_to_dict(appt: Appointment) -> dict:
         "session_mode": appt.session_mode.value,
         "can_join_video": bool(appt.video_room_url and can_join_video_session(appt.starts_at, appt.ends_at, now)),
     }
+    if user:
+        alert = _schedule_alert_for_user(appt, user)
+        if alert:
+            payload["schedule_alert"] = alert
+    return payload
 
 
 def _provider_is_bookable(user: User) -> bool:
@@ -115,7 +160,7 @@ def list_appointments():
         appointments = query.order_by(Appointment.starts_at.asc()).limit(50).all()
     else:
         appointments = query.limit(50).all()
-    return jsonify({"appointments": [_appointment_to_dict(a) for a in appointments]})
+    return jsonify({"appointments": [_appointment_to_dict(a, user) for a in appointments]})
 
 
 @appointments_bp.route("/<uuid:appointment_id>", methods=["GET"])
@@ -127,7 +172,7 @@ def get_appointment(appointment_id):
         return jsonify({"error": "Not Found"}), 404
     if user.id not in (appt.client_id, appt.provider_id):
         return jsonify({"error": "Forbidden"}), 403
-    return jsonify({"appointment": _appointment_to_dict(appt)})
+    return jsonify({"appointment": _appointment_to_dict(appt, user)})
 
 
 @appointments_bp.route("", methods=["POST"])
@@ -158,9 +203,21 @@ def book_appointment():
         provider_id=provider_id, duration_minutes=duration_minutes, is_active=True
     ).first()
 
-    pricing_type = PricingType(data.get("pricing_type", pricing.pricing_type.value if pricing else "standard"))
+    from app.models import PricingType
+
+    pricing_type_str = data.get("pricing_type", pricing.pricing_type.value if pricing else "standard")
+    if pricing_type_str == PricingType.PRO_BONO.value:
+        return jsonify({"error": "ValidationError", "message": "Pro bono pricing is not available"}), 400
+
+    pricing_type = PricingType(pricing_type_str)
     amount_cents = pricing.amount_cents if pricing else 0
     currency = pricing.currency if pricing else "USD"
+
+    if pricing and pricing.pricing_type == PricingType.PRO_BONO:
+        return jsonify({"error": "ValidationError", "message": "This counselor is not accepting bookings"}), 400
+
+    if pricing and pricing.amount_cents <= 0:
+        return jsonify({"error": "ValidationError", "message": "Invalid session pricing"}), 400
 
     if pricing and pricing.pricing_type == PricingType.SLIDING_SCALE:
         requested_cents = data.get("amount_cents")
@@ -169,17 +226,11 @@ def book_appointment():
                 amount_cents = int(requested_cents)
             except (TypeError, ValueError):
                 return jsonify({"error": "ValidationError", "message": "Invalid amount"}), 400
-            allowed = {0, pricing.amount_cents, pricing.amount_cents // 2}
+            allowed = {pricing.amount_cents, pricing.amount_cents // 2}
             if amount_cents not in allowed:
                 return jsonify({"error": "ValidationError", "message": "Invalid sliding scale amount"}), 400
-            if amount_cents == 0:
-                pricing_type = PricingType.PRO_BONO
-            elif amount_cents == pricing.amount_cents // 2:
+            if amount_cents == pricing.amount_cents // 2:
                 pricing_type = PricingType.SLIDING_SCALE
-        elif pricing_type == PricingType.PRO_BONO:
-            amount_cents = 0
-    elif pricing_type == PricingType.PRO_BONO:
-        amount_cents = 0
 
     organization_id = get_provider_organization_id(provider_id)
     if not organization_id:
@@ -230,14 +281,19 @@ def book_appointment():
         session_mode=session_mode,
     )
     db.session.add(appointment)
-    log_audit("appointment.booked", "appointment", actor_id=user.id)
+    appointment.schedule_change_type = ScheduleChangeType.BOOKED
+    appointment.schedule_change_at = utcnow()
+    appointment.schedule_change_by_id = user.id
+    appointment.client_schedule_ack_at = None
+    appointment.provider_schedule_ack_at = None
+    log_audit("appointment.booked", "appointment", str(appointment.id), actor_id=user.id)
     db.session.flush()
 
     ensure_appointment_video_room(appointment)
     notify_appointment_booked(appointment, user, provider)
     db.session.commit()
 
-    return jsonify({"appointment": _appointment_to_dict(appointment)}), 201
+    return jsonify({"appointment": _appointment_to_dict(appointment, user)}), 201
 
 
 @appointments_bp.route("/<uuid:appointment_id>/cancel", methods=["POST"])
@@ -252,7 +308,7 @@ def cancel_appointment(appointment_id):
         return jsonify({"error": "Forbidden"}), 403
 
     if appt.status == AppointmentStatus.CANCELLED:
-        return jsonify({"appointment": _appointment_to_dict(appt)})
+        return jsonify({"appointment": _appointment_to_dict(appt, user)})
 
     data = request.get_json(silent=True) or {}
     appt.status = AppointmentStatus.CANCELLED
@@ -263,7 +319,7 @@ def cancel_appointment(appointment_id):
     log_audit("appointment.cancelled", "appointment", str(appt.id), actor_id=user.id)
     db.session.commit()
 
-    return jsonify({"appointment": _appointment_to_dict(appt)})
+    return jsonify({"appointment": _appointment_to_dict(appt, user)})
 
 
 @appointments_bp.route("/<uuid:appointment_id>/reschedule", methods=["POST"])
@@ -300,13 +356,38 @@ def reschedule_appointment(appointment_id):
     appt.status = AppointmentStatus.CONFIRMED
     appt.video_room_url = None
     appt.video_room_name = None
+    appt.schedule_change_type = ScheduleChangeType.RESCHEDULED
+    appt.schedule_change_at = utcnow()
+    appt.schedule_change_by_id = user.id
+    appt.client_schedule_ack_at = None
+    if user.id == appt.provider_id:
+        appt.provider_schedule_ack_at = utcnow()
+    else:
+        appt.provider_schedule_ack_at = None
 
     ensure_appointment_video_room(appt)
     notify_appointment_rescheduled(appt, appt.client, appt.provider, user)
     log_audit("appointment.rescheduled", "appointment", str(appt.id), actor_id=user.id)
     db.session.commit()
 
-    return jsonify({"appointment": _appointment_to_dict(appt)})
+    return jsonify({"appointment": _appointment_to_dict(appt, user)})
+
+
+@appointments_bp.route("/<uuid:appointment_id>/ack-schedule-change", methods=["POST"])
+@jwt_required()
+def acknowledge_schedule_change(appointment_id):
+    user = _get_user()
+    appt = db.session.get(Appointment, appointment_id)
+    if not appt:
+        return jsonify({"error": "Not Found"}), 404
+    if user.id == appt.client_id:
+        appt.client_schedule_ack_at = utcnow()
+    elif user.id == appt.provider_id:
+        appt.provider_schedule_ack_at = utcnow()
+    else:
+        return jsonify({"error": "Forbidden"}), 403
+    db.session.commit()
+    return jsonify({"appointment": _appointment_to_dict(appt, user)})
 
 
 @appointments_bp.route("/<uuid:appointment_id>/complete", methods=["POST"])
@@ -324,7 +405,7 @@ def complete_appointment(appointment_id):
     appt.status = AppointmentStatus.COMPLETED
     log_audit("appointment.completed", "appointment", str(appt.id), actor_id=user.id)
     db.session.commit()
-    return jsonify({"appointment": _appointment_to_dict(appt)})
+    return jsonify({"appointment": _appointment_to_dict(appt, user)})
 
 
 @appointments_bp.route("/providers/<uuid:provider_id>/slots", methods=["GET"])

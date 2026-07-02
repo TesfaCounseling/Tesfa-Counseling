@@ -5,6 +5,7 @@ from flask_jwt_extended import JWTManager
 from app.db_utils import configure_sqlite_engine
 from app.config import config_by_name
 from app.extensions import db, migrate
+from app.routes.feedback import feedback_bp
 from app.routes.intake import intake_bp
 from app.routes.clinical_notes import clinical_notes_bp
 from app.routes.admin import admin_bp
@@ -47,6 +48,7 @@ def create_app(config_name: str | None = None) -> Flask:
     app.register_blueprint(appointments_bp, url_prefix="/api/v1/appointments")
     app.register_blueprint(clinical_notes_bp, url_prefix="/api/v1/clinical-notes")
     app.register_blueprint(intake_bp, url_prefix="/api/v1/intake")
+    app.register_blueprint(feedback_bp, url_prefix="/api/v1/feedback")
 
     from app.tasks.reminders import send_reminders_command
 

@@ -119,3 +119,55 @@ def notify_appointment_rescheduled(appointment, client, provider, rescheduled_by
     )
     _notify_users_telegram([client, provider], f"📅 {message}")
     _notify_users_email([client, provider], "Session rescheduled", message)
+
+
+def get_platform_admin_users():
+    from app.models import Organization, OrganizationMember, User, UserRole
+
+    org = Organization.query.filter_by(slug="platform").first()
+    if not org:
+        return []
+    return (
+        User.query.join(OrganizationMember)
+        .filter(
+            OrganizationMember.organization_id == org.id,
+            OrganizationMember.role == UserRole.PLATFORM_ADMIN,
+            OrganizationMember.is_active.is_(True),
+            User.is_active.is_(True),
+        )
+        .all()
+    )
+
+
+def get_client_feedback_staff_users():
+    """Platform admins and supervisors — staff who can view feedback in the admin portal."""
+    from app.models import Organization, OrganizationMember, User, UserRole
+
+    org = Organization.query.filter_by(slug="platform").first()
+    if not org:
+        return []
+    return (
+        User.query.join(OrganizationMember)
+        .filter(
+            OrganizationMember.organization_id == org.id,
+            OrganizationMember.role.in_([UserRole.PLATFORM_ADMIN, UserRole.SUPERVISOR]),
+            OrganizationMember.is_active.is_(True),
+            User.is_active.is_(True),
+        )
+        .distinct()
+        .all()
+    )
+
+
+def notify_client_feedback_backup(feedback, client) -> None:
+    """Email/Telegram backup only — primary delivery is in-app via the admin portal."""
+    category_label = "Complaint" if feedback.category.value == "complaint" else "Feedback"
+    message = (
+        f"New client {category_label.lower()} (also in admin portal)\n"
+        f"From: {client.full_name} ({client.email})\n"
+        f"Subject: {feedback.subject}\n\n"
+        f"{feedback.message}"
+    )
+    staff = get_client_feedback_staff_users()
+    _notify_users_email(staff, f"Client {category_label}: {feedback.subject}", message)
+    _notify_users_telegram(staff, f"📩 {category_label} from {client.full_name}\n{feedback.subject}")

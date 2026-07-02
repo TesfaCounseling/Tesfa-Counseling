@@ -16,13 +16,6 @@ const options = [
     cta: "Apply as counselor",
     tone: "btn-secondary",
   },
-  {
-    href: "/register/trainee",
-    title: "Join as a supervised trainee",
-    desc: "I'm in training and work under a supervisor",
-    cta: "Apply as trainee",
-    tone: "btn-trainee",
-  },
 ];
 
 export default function RegisterChooserPage() {

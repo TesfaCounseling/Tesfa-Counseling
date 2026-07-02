@@ -73,7 +73,7 @@ def main():
                 SessionPricing(
                     provider_id=user.id,
                     duration_minutes=50,
-                    amount_cents=5000,
+                    amount_cents=2500,
                     pricing_type=PricingType.STANDARD,
                 )
             )

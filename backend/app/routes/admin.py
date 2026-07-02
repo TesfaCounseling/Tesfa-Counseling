@@ -11,7 +11,9 @@ from app.models import (
     AppointmentStatus,
     ApprovalStatus,
     AuditLog,
+    ClientFeedback,
     ClientProfile,
+    FeedbackStatus,
     Organization,
     OrganizationMember,
     PricingType,
@@ -20,6 +22,7 @@ from app.models import (
     TraineeProfile,
     User,
     UserRole,
+    utcnow,
 )
 from app.utils import log_audit, user_has_role
 
@@ -471,6 +474,7 @@ def admin_statistics(current_user):
     by_pricing = {
         pt.value: Appointment.query.filter_by(pricing_type=pt).count()
         for pt in PricingType
+        if pt not in (PricingType.PRO_BONO, PricingType.TRAINEE_RATE)
     }
 
     currency_rows = (
@@ -553,7 +557,6 @@ def admin_statistics(current_user):
                 "completed_cents": int(revenue_completed or 0),
                 "last_30d_cents": int(revenue_30d or 0),
                 "avg_paid_session_cents": int(round(float(avg_session or 0))),
-                "pro_bono_sessions": Appointment.query.filter_by(pricing_type=PricingType.PRO_BONO).count(),
                 "sliding_scale_sessions": Appointment.query.filter_by(pricing_type=PricingType.SLIDING_SCALE).count(),
                 "by_currency": [
                     {"currency": row.currency, "total_cents": int(row.total_cents), "sessions": row.count}
@@ -587,18 +590,21 @@ def admin_statistics(current_user):
 @require_roles(UserRole.PLATFORM_ADMIN, UserRole.SUPERVISOR)
 def admin_overview(current_user):
     since = datetime.now(timezone.utc) - timedelta(hours=24)
-    return jsonify(
-        {
-            "pending_counselors": TherapistProfile.query.filter_by(approval_status=ApprovalStatus.PENDING).count(),
-            "pending_trainees": TraineeProfile.query.filter_by(approval_status=ApprovalStatus.PENDING).count(),
-            "approved_counselors": TherapistProfile.query.filter_by(approval_status=ApprovalStatus.APPROVED).count(),
-            "approved_trainees": TraineeProfile.query.filter_by(approval_status=ApprovalStatus.APPROVED).count(),
-            "total_users": User.query.count(),
-            "active_users": User.query.filter_by(is_active=True).count(),
-            "organizations": Organization.query.filter_by(is_active=True).count(),
-            "audit_events_24h": AuditLog.query.filter(AuditLog.created_at >= since).count(),
-        }
-    )
+    payload = {
+        "pending_counselors": TherapistProfile.query.filter_by(approval_status=ApprovalStatus.PENDING).count(),
+        "pending_trainees": TraineeProfile.query.filter_by(approval_status=ApprovalStatus.PENDING).count(),
+        "approved_counselors": TherapistProfile.query.filter_by(approval_status=ApprovalStatus.APPROVED).count(),
+        "approved_trainees": TraineeProfile.query.filter_by(approval_status=ApprovalStatus.APPROVED).count(),
+        "total_users": User.query.count(),
+        "active_users": User.query.filter_by(is_active=True).count(),
+        "organizations": Organization.query.filter_by(is_active=True).count(),
+        "audit_events_24h": AuditLog.query.filter(AuditLog.created_at >= since).count(),
+    }
+    if user_has_role(current_user, UserRole.PLATFORM_ADMIN) or user_has_role(
+        current_user, UserRole.SUPERVISOR
+    ):
+        payload["open_client_feedback"] = ClientFeedback.query.filter_by(status=FeedbackStatus.OPEN).count()
+    return jsonify(payload)
 
 
 @admin_bp.route("/users", methods=["GET"])
@@ -819,16 +825,11 @@ def list_providers(current_user):
     therapist_query = db.session.query(User, TherapistProfile).join(
         TherapistProfile, TherapistProfile.user_id == User.id
     )
-    trainee_query = db.session.query(User, TraineeProfile).join(
-        TraineeProfile, TraineeProfile.user_id == User.id
-    )
 
     if status_filter != "all":
         therapist_query = therapist_query.filter(TherapistProfile.approval_status == ApprovalStatus(status_filter))
-        trainee_query = trainee_query.filter(TraineeProfile.approval_status == ApprovalStatus(status_filter))
 
     providers = [_provider_admin_dict(u, "therapist", p) for u, p in therapist_query.order_by(User.created_at.desc()).all()]
-    providers += [_provider_admin_dict(u, "trainee", p) for u, p in trainee_query.order_by(User.created_at.desc()).all()]
     providers.sort(key=lambda p: p["created_at"], reverse=True)
 
     return jsonify({"providers": providers})
@@ -852,6 +853,86 @@ def list_audit_logs(current_user):
             "offset": offset,
         }
     )
+
+
+def _client_feedback_to_dict(record: ClientFeedback) -> dict:
+    client = record.client
+    resolver = record.resolved_by
+    return {
+        "id": str(record.id),
+        "category": record.category.value,
+        "subject": record.subject,
+        "message": record.message,
+        "status": record.status.value,
+        "client_id": str(record.client_id),
+        "client_name": client.full_name if client else None,
+        "client_email": client.email if client else None,
+        "resolved_at": record.resolved_at.isoformat() if record.resolved_at else None,
+        "resolved_by_name": resolver.full_name if resolver else None,
+        "created_at": record.created_at.isoformat(),
+    }
+
+
+@admin_bp.route("/feedback", methods=["GET"])
+@require_roles(UserRole.PLATFORM_ADMIN, UserRole.SUPERVISOR)
+def list_client_feedback(current_user):
+    limit = min(max(int(request.args.get("limit", 50)), 1), 100)
+    offset = max(int(request.args.get("offset", 0)), 0)
+    status_filter = (request.args.get("status") or "open").strip().lower()
+
+    query = ClientFeedback.query.order_by(ClientFeedback.created_at.desc())
+    if status_filter != "all":
+        try:
+            query = query.filter_by(status=FeedbackStatus(status_filter))
+        except ValueError:
+            return jsonify({"error": "ValidationError", "message": "Invalid status filter"}), 400
+
+    total = query.count()
+    open_count = ClientFeedback.query.filter_by(status=FeedbackStatus.OPEN).count()
+    records = query.offset(offset).limit(limit).all()
+
+    return jsonify(
+        {
+            "feedback": [_client_feedback_to_dict(record) for record in records],
+            "total": total,
+            "open_count": open_count,
+            "limit": limit,
+            "offset": offset,
+        }
+    )
+
+
+@admin_bp.route("/feedback/<uuid:feedback_id>", methods=["PATCH"])
+@require_roles(UserRole.PLATFORM_ADMIN, UserRole.SUPERVISOR)
+def update_client_feedback(feedback_id, current_user):
+    record = db.session.get(ClientFeedback, feedback_id)
+    if not record:
+        return jsonify({"error": "Not Found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    if "status" in data:
+        try:
+            status = FeedbackStatus(data["status"])
+        except ValueError:
+            return jsonify({"error": "ValidationError", "message": "Invalid status"}), 400
+
+        record.status = status
+        if status == FeedbackStatus.RESOLVED:
+            record.resolved_at = utcnow()
+            record.resolved_by_id = current_user.id
+        else:
+            record.resolved_at = None
+            record.resolved_by_id = None
+
+    log_audit(
+        "feedback.updated",
+        "client_feedback",
+        str(record.id),
+        f"status={record.status.value}",
+        actor_id=current_user.id,
+    )
+    db.session.commit()
+    return jsonify({"feedback": _client_feedback_to_dict(record)})
 
 
 @admin_bp.route("/organizations", methods=["GET"])

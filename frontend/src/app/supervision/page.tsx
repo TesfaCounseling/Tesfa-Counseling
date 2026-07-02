@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
 import PageHero from "@/components/PageHero";
+import { SoapNotePreview } from "@/components/SoapNoteFields";
 import { cosignClinicalNote, listSupervisionQueue, type ClinicalNote } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 
@@ -81,23 +82,7 @@ export default function SupervisionPage() {
                 </Link>
               </div>
 
-              <div className="mt-4 space-y-2 rounded-xl bg-ethio-surface p-4 text-sm">
-                {note.subjective && (
-                  <p>
-                    <span className="font-semibold text-ethio-ink">S:</span> {note.subjective}
-                  </p>
-                )}
-                {note.assessment && (
-                  <p>
-                    <span className="font-semibold text-ethio-ink">A:</span> {note.assessment}
-                  </p>
-                )}
-                {note.plan && (
-                  <p>
-                    <span className="font-semibold text-ethio-ink">P:</span> {note.plan}
-                  </p>
-                )}
-              </div>
+              <SoapNotePreview note={note} compact />
 
               <label className="mt-4 block text-sm font-medium text-ethio-ink">
                 Supervisor comment (optional)

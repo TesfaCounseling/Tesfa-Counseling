@@ -7,9 +7,10 @@ import AdminApprovals from "@/components/admin/AdminApprovals";
 import AdminProviders from "@/components/admin/AdminProviders";
 import AdminUsers from "@/components/admin/AdminUsers";
 import AdminAuditLog from "@/components/admin/AdminAuditLog";
+import AdminFeedback from "@/components/admin/AdminFeedback";
 import AdminStatisticsPanel from "@/components/admin/AdminStatisticsPanel";
 import { getAdminOverview, type AdminOverview, type AuthUser } from "@/lib/api";
-import { canManagePlatform, canReviewCounselors } from "@/lib/roles";
+import { canManagePlatform, canReviewCounselors, canViewClientFeedback } from "@/lib/roles";
 
 type AdminDashboardPanelProps = {
   user: AuthUser;
@@ -19,15 +20,18 @@ export default function AdminDashboardPanel({ user }: AdminDashboardPanelProps) 
   const [section, setSection] = useState<AdminSection>("overview");
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
+  const [openFeedbackCount, setOpenFeedbackCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const platformAdmin = canManagePlatform(user);
+  const canViewFeedback = canViewClientFeedback(user);
 
   const loadOverview = useCallback(async () => {
     const data = await getAdminOverview();
     setOverview(data);
-    setPendingCount(data.pending_counselors + data.pending_trainees);
+    setPendingCount(data.pending_counselors);
+    setOpenFeedbackCount(data.open_client_feedback ?? 0);
   }, []);
 
   useEffect(() => {
@@ -41,6 +45,9 @@ export default function AdminDashboardPanel({ user }: AdminDashboardPanelProps) 
       { id: "overview", label: "Overview" },
       { id: "approvals", label: "Approvals", badge: pendingCount },
     ];
+    if (canViewFeedback) {
+      items.push({ id: "feedback", label: "Feedback", badge: openFeedbackCount });
+    }
     if (platformAdmin) {
       items.push(
         { id: "statistics", label: "Statistics" },
@@ -50,7 +57,7 @@ export default function AdminDashboardPanel({ user }: AdminDashboardPanelProps) 
       );
     }
     return items;
-  }, [platformAdmin, pendingCount]);
+  }, [platformAdmin, canViewFeedback, pendingCount, openFeedbackCount]);
 
   if (loading) {
     return <p className="text-sm text-ethio-ink-muted">Loading platform overview…</p>;
@@ -68,6 +75,8 @@ export default function AdminDashboardPanel({ user }: AdminDashboardPanelProps) 
           showCounselorPending={canReviewCounselors(user)}
           onGoToApprovals={() => setSection("approvals")}
           onGoToStatistics={platformAdmin ? () => setSection("statistics") : undefined}
+          onGoToFeedback={canViewFeedback ? () => setSection("feedback") : undefined}
+          showFeedback={canViewFeedback}
         />
       )}
 
@@ -85,6 +94,9 @@ export default function AdminDashboardPanel({ user }: AdminDashboardPanelProps) 
 
       {section === "providers" && platformAdmin && <AdminProviders />}
       {section === "users" && platformAdmin && <AdminUsers />}
+      {section === "feedback" && canViewFeedback && (
+        <AdminFeedback onUpdated={() => loadOverview().catch(() => {})} />
+      )}
       {section === "audit" && platformAdmin && <AdminAuditLog />}
     </div>
   );

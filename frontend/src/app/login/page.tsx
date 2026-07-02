@@ -1,15 +1,22 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useState } from "react";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 import AuthShell from "@/components/AuthShell";
-import { loginUser } from "@/lib/api";
+import { syncLanguageFromProfile, useLanguage } from "@/components/LanguageProvider";
+import { isAppLanguage } from "@/lib/i18n";
+import { getMe, loginUser } from "@/lib/api";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { t, setLanguage } = useLanguage();
   const nextPath = searchParams.get("next");
   const safeNext = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/dashboard";
+  const registerHref =
+    nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
+      ? `/register/client?next=${encodeURIComponent(nextPath)}`
+      : "/register/client";
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,6 +31,15 @@ function LoginForm() {
       const result = await loginUser(String(form.get("email")), String(form.get("password")));
       localStorage.setItem("access_token", result.access_token);
       localStorage.setItem("refresh_token", result.refresh_token);
+      try {
+        const me = await getMe();
+        if (isAppLanguage(me.user.preferred_language)) {
+          setLanguage(me.user.preferred_language);
+          syncLanguageFromProfile(me.user.preferred_language);
+        }
+      } catch {
+        /* keep UI language from switcher */
+      }
       router.push(safeNext);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
@@ -33,13 +49,10 @@ function LoginForm() {
   }
 
   return (
-    <AuthShell
-      title="Log in"
-      subtitle={safeNext === "/admin" ? "Sign in with your admin account to continue" : "Access your sessions and messages"}
-    >
+    <AuthShell title={t("login.title")} subtitle={t("login.subtitle")}>
       <form onSubmit={handleSubmit} className="space-y-5">
         <label className="block text-sm font-medium text-ethio-ink">
-          Email
+          {t("common.email")}
           <input
             name="email"
             type="email"
@@ -51,7 +64,7 @@ function LoginForm() {
         </label>
 
         <label className="block text-sm font-medium text-ethio-ink">
-          Password
+          {t("common.password")}
           <input
             name="password"
             type="password"
@@ -68,13 +81,13 @@ function LoginForm() {
         )}
 
         <button type="submit" disabled={loading} className="btn-primary">
-          {loading ? "Signing in…" : "Sign in"}
+          {loading ? t("login.signingIn") : t("login.signIn")}
         </button>
 
         <p className="text-center text-sm text-ethio-ink-muted">
-          New here?{" "}
-          <a href="/register" className="link-inline">
-            Create account
+          {t("login.newHere")}{" "}
+          <a href={registerHref} className="link-inline">
+            {t("login.createAccount")}
           </a>
         </p>
       </form>

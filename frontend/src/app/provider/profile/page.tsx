@@ -1,23 +1,58 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
 import PageHero from "@/components/PageHero";
-import { getMyProviderProfile, updateMyProviderProfile, type ProviderProfile } from "@/lib/api";
+import { ProviderAvatar } from "@/components/ProviderCard";
+import {
+  deleteMyProviderPhoto,
+  getMyProviderProfile,
+  updateMyProviderProfile,
+  uploadMyProviderPhoto,
+  type ProviderProfile,
+} from "@/lib/api";
+import { resolveProviderPhotoUrl } from "@/lib/providerUtils";
+
+function ProfileChecklist({ profile }: { profile: ProviderProfile }) {
+  const approved = profile.approval_status === "approved";
+  const hasPhoto = Boolean(profile.photo_url);
+  const hasIntro = Boolean(profile.bio?.trim());
+
+  return (
+    <div className="rounded-xl bg-ethio-surface p-4 text-sm">
+      <p className="font-semibold text-ethio-ink">Public listing checklist</p>
+      <p className="mt-1 text-ethio-ink-muted">
+        You appear on the homepage and Find a counselor once all items are complete.
+      </p>
+      <ul className="mt-3 space-y-2 text-ethio-ink-muted">
+        <li>{approved ? "✓" : "○"} Admin approval</li>
+        <li>{hasPhoto ? "✓" : "○"} Profile photo</li>
+        <li>{hasIntro ? "✓" : "○"} Introduction</li>
+      </ul>
+      {profile.public_profile_complete && (
+        <p className="mt-3 font-medium text-ethio-green-dark">Your profile is live on the main page.</p>
+      )}
+    </div>
+  );
+}
 
 export default function ProviderProfilePage() {
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     getMyProviderProfile()
       .then((data) => {
         setProfile(data.profile);
+        setFullName(data.user.full_name);
         setEmail(data.user.email);
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load profile"))
@@ -45,11 +80,52 @@ export default function ProviderProfilePage() {
       }
       const result = await updateMyProviderProfile(payload);
       setProfile(result.profile);
-      setSuccess("Profile saved. Changes appear on Find a counselor after approval.");
+      setSuccess(
+        result.profile.public_profile_complete
+          ? "Profile saved. Your photo and introduction are live on the main page."
+          : "Profile saved. Add a photo and introduction to appear on the main page after approval."
+      );
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handlePhotoChange(file: File | null) {
+    if (!file || !profile) return;
+    setUploadingPhoto(true);
+    setError("");
+    setSuccess("");
+    try {
+      const result = await uploadMyProviderPhoto(file);
+      setProfile(result.profile);
+      setSuccess(
+        result.profile.public_profile_complete
+          ? "Photo uploaded. Your profile is live on the main page."
+          : "Photo uploaded. Add your introduction to appear on the main page after approval."
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Photo upload failed");
+    } finally {
+      setUploadingPhoto(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleRemovePhoto() {
+    if (!profile?.photo_url) return;
+    setUploadingPhoto(true);
+    setError("");
+    setSuccess("");
+    try {
+      const result = await deleteMyProviderPhoto();
+      setProfile(result.profile);
+      setSuccess("Photo removed.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not remove photo");
+    } finally {
+      setUploadingPhoto(false);
     }
   }
 
@@ -66,10 +142,12 @@ export default function ProviderProfilePage() {
     return (
       <div className="page-shell">
         <SiteHeader showAuth={false} />
-        <PageHero title="Provider profile" subtitle="This page is for counselors and trainees only." backHref="/dashboard" backLabel="Dashboard" />
+        <PageHero title="Provider profile" subtitle="This page is for counselors only." backHref="/dashboard" backLabel="Dashboard" />
       </div>
     );
   }
+
+  const photoPreview = resolveProviderPhotoUrl(profile.photo_url);
 
   return (
     <div className="page-shell">
@@ -77,7 +155,7 @@ export default function ProviderProfilePage() {
       <PageHero
         eyebrow="Your practice"
         title="Edit profile"
-        subtitle="Update how clients find and learn about you on the platform."
+        subtitle="Upload your photo and write a short introduction. Once approved, you appear automatically on the main page."
         backHref="/dashboard"
         backLabel="Dashboard"
       />
@@ -88,6 +166,47 @@ export default function ProviderProfilePage() {
             <span className="capitalize">{profile.approval_status}</span>
           </p>
 
+          {profile.type === "therapist" && <ProfileChecklist profile={profile} />}
+
+          {profile.type === "therapist" && (
+            <div className="rounded-xl border border-ethio-border p-4">
+              <p className="text-sm font-semibold text-ethio-ink">Profile photo</p>
+              <p className="mt-1 text-xs text-ethio-ink-muted">
+                JPEG, PNG, or WebP · max 2 MB. Shown on the homepage and counselor listings.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-4">
+                <ProviderAvatar name={fullName} photoUrl={profile.photo_url} size="lg" />
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingPhoto}
+                    className="btn-secondary text-sm disabled:opacity-60"
+                  >
+                    {uploadingPhoto ? "Uploading…" : photoPreview ? "Change photo" : "Upload photo"}
+                  </button>
+                  {photoPreview && (
+                    <button
+                      type="button"
+                      onClick={handleRemovePhoto}
+                      disabled={uploadingPhoto}
+                      className="rounded-lg border border-ethio-border px-4 py-2 text-sm font-semibold text-ethio-ink-muted disabled:opacity-60"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => handlePhotoChange(e.target.files?.[0] || null)}
+                />
+              </div>
+            </div>
+          )}
+
           <label className="block text-sm font-medium text-ethio-ink">
             Languages (comma-separated)
             <input name="languages" defaultValue={profile.languages || ""} required className="input-field" />
@@ -96,8 +215,18 @@ export default function ProviderProfilePage() {
           {profile.type === "therapist" ? (
             <>
               <label className="block text-sm font-medium text-ethio-ink">
-                Bio
-                <textarea name="bio" rows={4} defaultValue={profile.bio || ""} className="input-field" />
+                Introduction
+                <textarea
+                  name="bio"
+                  rows={5}
+                  required
+                  defaultValue={profile.bio || ""}
+                  placeholder="A brief welcome for clients — your approach, who you help, and what sessions feel like."
+                  className="input-field"
+                />
+                <span className="mt-1 block text-xs font-normal text-ethio-ink-muted">
+                  This appears on the main page and your public counselor profile.
+                </span>
               </label>
               <label className="block text-sm font-medium text-ethio-ink">
                 Specialties (comma-separated)

@@ -119,6 +119,8 @@ class TherapistProfile(db.Model):
     languages: Mapped[str | None] = mapped_column(db.String(255))
     license_number: Mapped[str | None] = mapped_column(db.String(100))
     license_authority: Mapped[str | None] = mapped_column(db.String(255))
+    photo_mime_type: Mapped[str | None] = mapped_column(db.String(64))
+    photo_data: Mapped[bytes | None] = mapped_column(db.LargeBinary)
     approval_status: Mapped[ApprovalStatus] = mapped_column(
         Enum(ApprovalStatus, name="approval_status"), default=ApprovalStatus.PENDING, nullable=False
     )
@@ -257,6 +259,11 @@ class AppointmentStatus(str, enum.Enum):
     NO_SHOW = "no_show"
 
 
+class ScheduleChangeType(str, enum.Enum):
+    BOOKED = "booked"
+    RESCHEDULED = "rescheduled"
+
+
 class PricingType(str, enum.Enum):
     STANDARD = "standard"
     SLIDING_SCALE = "sliding_scale"
@@ -359,6 +366,15 @@ class Appointment(db.Model):
         default=SessionMode.VIDEO,
         nullable=False,
     )
+    schedule_change_type: Mapped[ScheduleChangeType | None] = mapped_column(
+        Enum(ScheduleChangeType, name="schedule_change_type"), nullable=True
+    )
+    schedule_change_at: Mapped[datetime | None] = mapped_column(db.DateTime(timezone=True), nullable=True)
+    schedule_change_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), db.ForeignKey("users.id", ondelete="SET NULL")
+    )
+    client_schedule_ack_at: Mapped[datetime | None] = mapped_column(db.DateTime(timezone=True), nullable=True)
+    provider_schedule_ack_at: Mapped[datetime | None] = mapped_column(db.DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(db.DateTime(timezone=True), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         db.DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
@@ -366,6 +382,7 @@ class Appointment(db.Model):
 
     client = relationship("User", foreign_keys=[client_id])
     provider = relationship("User", foreign_keys=[provider_id])
+    schedule_change_by = relationship("User", foreign_keys=[schedule_change_by_id])
     supervisor = relationship("User", foreign_keys=[supervisor_id])
     clinical_note = relationship("ClinicalNote", back_populates="appointment", uselist=False)
 
@@ -458,4 +475,42 @@ class TraineeIntake(db.Model):
 
     client = relationship("User", foreign_keys=[client_id])
     trainee = relationship("User", foreign_keys=[trainee_provider_id])
+
+
+class FeedbackCategory(str, enum.Enum):
+    FEEDBACK = "feedback"
+    COMPLAINT = "complaint"
+
+
+class FeedbackStatus(str, enum.Enum):
+    OPEN = "open"
+    RESOLVED = "resolved"
+
+
+class ClientFeedback(db.Model):
+    __tablename__ = "client_feedback"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    client_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    category: Mapped[FeedbackCategory] = mapped_column(
+        Enum(FeedbackCategory, name="feedback_category"), nullable=False
+    )
+    subject: Mapped[str] = mapped_column(db.String(200), nullable=False)
+    message: Mapped[str] = mapped_column(db.Text, nullable=False)
+    status: Mapped[FeedbackStatus] = mapped_column(
+        Enum(FeedbackStatus, name="feedback_status"), default=FeedbackStatus.OPEN, nullable=False
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(db.DateTime(timezone=True), nullable=True)
+    resolved_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), db.ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(db.DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        db.DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    client = relationship("User", foreign_keys=[client_id])
+    resolved_by = relationship("User", foreign_keys=[resolved_by_id])
 

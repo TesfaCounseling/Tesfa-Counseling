@@ -29,14 +29,10 @@ type PriceTier = { label: string; amount_cents: number; pricing_type: string };
 
 function buildTiers(pricing: ProviderPricing | undefined): PriceTier[] {
   if (!pricing) return [{ label: "Standard rate", amount_cents: 0, pricing_type: "standard" }];
-  if (pricing.pricing_type === "pro_bono" || pricing.amount_cents === 0) {
-    return [{ label: "Pro bono (free)", amount_cents: 0, pricing_type: "pro_bono" }];
-  }
   if (pricing.pricing_type === "sliding_scale") {
     return [
       { label: `Full rate — ${formatMoney(pricing.amount_cents, pricing.currency)}`, amount_cents: pricing.amount_cents, pricing_type: "standard" },
       { label: `Reduced — ${formatMoney(Math.round(pricing.amount_cents / 2), pricing.currency)}`, amount_cents: Math.round(pricing.amount_cents / 2), pricing_type: "sliding_scale" },
-      { label: "Pro bono (free)", amount_cents: 0, pricing_type: "pro_bono" },
     ];
   }
   return [{
@@ -80,7 +76,11 @@ export default function BookCounselorPage() {
   useEffect(() => {
     const token = localStorage.getItem("access_token");
     if (!token) {
-      router.push("/login");
+      const returnPath =
+        isReschedule && rescheduleId
+          ? `/counselors/${providerId}/book?reschedule=${encodeURIComponent(rescheduleId)}`
+          : "/counselors";
+      router.push(`/login?next=${encodeURIComponent(returnPath)}`);
       return;
     }
 
@@ -172,7 +172,7 @@ export default function BookCounselorPage() {
             {provider ? (
               <>
                 <div className="flex items-center gap-4">
-                  <ProviderAvatar name={provider.full_name} />
+                  <ProviderAvatar name={provider.full_name} photoUrl={provider.photo_url} />
                   <div className="min-w-0">
                     <h2 className="text-lg font-bold text-ethio-ink">{provider.full_name}</h2>
                     <p className="text-sm font-medium capitalize text-ethio-green">
@@ -192,9 +192,7 @@ export default function BookCounselorPage() {
                   <div className="mt-5 rounded-xl bg-ethio-surface-warm px-4 py-3 text-sm">
                     <p className="font-semibold text-ethio-ink">Session fee</p>
                     <p className="mt-1 text-ethio-ink-muted">
-                      {selectedTier.amount_cents === 0
-                        ? "Pro bono — no charge recorded"
-                        : formatMoney(selectedTier.amount_cents, currentPricing.currency)}
+                      {formatMoney(selectedTier.amount_cents, currentPricing.currency)}
                     </p>
                   </div>
                 )}
@@ -336,7 +334,7 @@ export default function BookCounselorPage() {
                 {!isReschedule && selectedTier && (
                   <>
                     {" · "}
-                    {selectedTier.amount_cents === 0 ? "Pro bono" : formatMoney(selectedTier.amount_cents, currentPricing?.currency || "USD")}
+                    {formatMoney(selectedTier.amount_cents, currentPricing?.currency || "USD")}
                     {" · "}
                     {sessionMode === "audio_only" ? "Audio" : "Video"}
                   </>

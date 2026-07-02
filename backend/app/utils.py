@@ -80,6 +80,10 @@ def is_platform_admin(user: User) -> bool:
     return user_has_role(user, UserRole.PLATFORM_ADMIN)
 
 
+def can_view_client_feedback(user: User) -> bool:
+    return user_has_role(user, UserRole.PLATFORM_ADMIN) or user_has_role(user, UserRole.SUPERVISOR)
+
+
 def log_audit(
     action: str,
     resource_type: str,

@@ -24,7 +24,7 @@ from app.utils import create_provider_organization, log_audit
 auth_bp = Blueprint("auth", __name__)
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
-VALID_REGISTER_ROLES = {UserRole.THERAPIST, UserRole.TRAINEE, UserRole.CLIENT}
+VALID_REGISTER_ROLES = {UserRole.THERAPIST, UserRole.CLIENT}
 
 
 def _user_to_dict(user: User) -> dict:
@@ -41,6 +41,10 @@ def _user_to_dict(user: User) -> dict:
     elif user.client_profile:
         account_type = "client"
 
+    preferred_language = None
+    if user.client_profile:
+        preferred_language = user.client_profile.preferred_language
+
     return {
         "id": str(user.id),
         "email": user.email,
@@ -49,6 +53,7 @@ def _user_to_dict(user: User) -> dict:
         "full_name": user.full_name,
         "is_email_verified": user.is_email_verified,
         "account_type": account_type,
+        "preferred_language": preferred_language,
         "roles": roles,
     }
 
@@ -75,12 +80,18 @@ def register():
     except ValueError:
         return jsonify({"error": "ValidationError", "message": "Invalid role"}), 400
 
+    if role == UserRole.TRAINEE:
+        return jsonify({"error": "ValidationError", "message": "Trainee registration is not available"}), 400
+
     if role not in VALID_REGISTER_ROLES:
         return jsonify({"error": "ValidationError", "message": "Role cannot be registered publicly"}), 400
 
     languages = (data.get("languages") or "").strip()
-    if role in (UserRole.THERAPIST, UserRole.TRAINEE) and not languages:
+    specializations = (data.get("specializations") or "").strip()
+    if role == UserRole.THERAPIST and not languages:
         return jsonify({"error": "ValidationError", "message": "Languages spoken are required for providers"}), 400
+    if role == UserRole.THERAPIST and not specializations:
+        return jsonify({"error": "ValidationError", "message": "Specialties are required for counselors"}), 400
 
     if User.query.filter_by(email=email).first():
         return jsonify({"error": "Conflict", "message": "Email already registered"}), 409
@@ -94,7 +105,7 @@ def register():
         provider_org_name = organization_name or f"{first_name} {last_name}".strip() or "Independent Practice"
         organization = create_provider_organization(provider_org_name)
         db.session.add(OrganizationMember(organization_id=organization.id, user_id=user.id, role=role))
-        db.session.add(TherapistProfile(user_id=user.id, languages=languages))
+        db.session.add(TherapistProfile(user_id=user.id, languages=languages, specializations=specializations))
     elif role == UserRole.TRAINEE:
         provider_org_name = organization_name or f"{first_name} {last_name}".strip() or "Independent Practice"
         organization = create_provider_organization(provider_org_name)
@@ -102,7 +113,10 @@ def register():
         program_name = (data.get("program_name") or "").strip() or None
         db.session.add(TraineeProfile(user_id=user.id, languages=languages, program_name=program_name))
     elif role == UserRole.CLIENT:
-        db.session.add(ClientProfile(user_id=user.id))
+        preferred_language = (data.get("preferred_language") or "en").strip().lower()
+        if preferred_language not in ("en", "am"):
+            preferred_language = "en"
+        db.session.add(ClientProfile(user_id=user.id, preferred_language=preferred_language))
 
     consents = data.get("consents") or []
     for consent in consents:
@@ -178,14 +192,16 @@ def login():
 
     try:
         return run_with_db_retry(_login)
-    except OperationalError:
+    except OperationalError as exc:
         db.session.rollback()
-        return jsonify(
-            {
-                "error": "ServiceUnavailable",
-                "message": "Database is busy. Please wait a moment and try again.",
-            }
-        ), 503
+        if "locked" in str(exc).lower():
+            return jsonify(
+                {
+                    "error": "ServiceUnavailable",
+                    "message": "Database is busy. Please wait a moment and try again.",
+                }
+            ), 503
+        raise
 
 
 @auth_bp.route("/refresh", methods=["POST"])
@@ -206,4 +222,24 @@ def me():
     user = db.session.get(User, uuid.UUID(user_id))
     if not user:
         return jsonify({"error": "Not Found", "message": "User not found"}), 404
+    return jsonify({"user": _user_to_dict(user)})
+
+
+@auth_bp.route("/me/preferences", methods=["PATCH"])
+@jwt_required()
+def update_preferences():
+    user_id = get_jwt_identity()
+    user = db.session.get(User, uuid.UUID(user_id))
+    if not user or not user.is_active:
+        return jsonify({"error": "Unauthorized", "message": "Invalid or inactive user"}), 401
+
+    data = request.get_json(silent=True) or {}
+    if "preferred_language" in data:
+        lang = (data.get("preferred_language") or "en").strip().lower()
+        if lang not in ("en", "am"):
+            return jsonify({"error": "ValidationError", "message": "Language must be en or am"}), 400
+        if user.client_profile:
+            user.client_profile.preferred_language = lang
+
+    db.session.commit()
     return jsonify({"user": _user_to_dict(user)})

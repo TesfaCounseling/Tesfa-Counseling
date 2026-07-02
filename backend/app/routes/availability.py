@@ -144,7 +144,17 @@ def upsert_pricing():
 
     from app.models import PricingType
 
-    pricing_type = PricingType(data.get("pricing_type", "standard"))
+    pricing_type_str = data.get("pricing_type", "standard")
+    if pricing_type_str == PricingType.PRO_BONO.value:
+        return jsonify({"error": "ValidationError", "message": "Pro bono pricing is not available"}), 400
+
+    try:
+        pricing_type = PricingType(pricing_type_str)
+    except ValueError:
+        return jsonify({"error": "ValidationError", "message": "Invalid pricing type"}), 400
+
+    if amount_cents <= 0:
+        return jsonify({"error": "ValidationError", "message": "Price must be greater than zero"}), 400
     existing = SessionPricing.query.filter_by(provider_id=user.id, duration_minutes=duration).first()
     if existing:
         existing.amount_cents = amount_cents

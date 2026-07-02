@@ -87,6 +87,12 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
+    CORS_ORIGINS = [
+        *Config.CORS_ORIGINS,
+        r"https?://192\.168\.\d{1,3}\.\d{1,3}:3000",
+        r"https?://10\.\d{1,3}\.\d{1,3}\.\d{1,3}:3000",
+        r"https?://172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}:3000",
+    ]
 
 
 class ProductionConfig(Config):

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
-import { APP_NAME, TAGLINE } from "@/lib/brand";
+import { APP_NAME } from "@/lib/brand";
+import { AppProviders } from "./providers";
 
 export const metadata: Metadata = {
   title: APP_NAME,
@@ -25,8 +26,10 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-dvh antialiased">{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-dvh antialiased">
+        <AppProviders>{children}</AppProviders>
+      </body>
     </html>
   );
 }

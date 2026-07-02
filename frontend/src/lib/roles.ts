@@ -21,6 +21,10 @@ export function canManagePlatform(user: AuthUser | null): boolean {
   return hasRole(user, "platform_admin");
 }
 
+export function canViewClientFeedback(user: AuthUser | null): boolean {
+  return hasRole(user, "platform_admin", "supervisor");
+}
+
 export function isSupervisor(user: AuthUser | null): boolean {
   return hasRole(user, "supervisor");
 }

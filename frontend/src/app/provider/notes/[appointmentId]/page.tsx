@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
+import { SoapNoteFields } from "@/components/SoapNoteFields";
 import {
   createClinicalNote,
   getMe,
@@ -15,6 +16,7 @@ import {
   type NoteSession,
 } from "@/lib/api";
 import { formatDateTime, formatStatusLabel } from "@/lib/format";
+import { missingSoapSections, soapFormFromNote, type SoapFormValues } from "@/lib/soapNotes";
 
 export default function ClinicalNoteEditorPage() {
   const params = useParams();
@@ -23,7 +25,7 @@ export default function ClinicalNoteEditorPage() {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [session, setSession] = useState<NoteSession | null>(null);
   const [note, setNote] = useState<ClinicalNote | null>(null);
-  const [form, setForm] = useState({ subjective: "", objective: "", assessment: "", plan: "" });
+  const [form, setForm] = useState<SoapFormValues>(soapFormFromNote(null));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -46,14 +48,7 @@ export default function ClinicalNoteEditorPage() {
         setUser(me.user);
         setSession(data.session);
         setNote(data.note);
-        if (data.note) {
-          setForm({
-            subjective: data.note.subjective || "",
-            objective: data.note.objective || "",
-            assessment: data.note.assessment || "",
-            plan: data.note.plan || "",
-          });
-        }
+        setForm(soapFormFromNote(data.note));
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load note"))
       .finally(() => setLoading(false));
@@ -87,6 +82,12 @@ export default function ClinicalNoteEditorPage() {
   }
 
   async function handleSubmit() {
+    const missing = missingSoapSections(form);
+    if (missing.length > 0) {
+      setError(`Complete all SOAP sections before submitting: ${missing.join(", ")}`);
+      return;
+    }
+
     setSaving(true);
     setError("");
     setMessage("");
@@ -94,12 +95,7 @@ export default function ClinicalNoteEditorPage() {
       const saved = await persistDraft();
       const { note: submitted } = await submitClinicalNote(saved.id);
       setNote(submitted);
-      setForm({
-        subjective: submitted.subjective || "",
-        objective: submitted.objective || "",
-        assessment: submitted.assessment || "",
-        plan: submitted.plan || "",
-      });
+      setForm(soapFormFromNote(submitted));
       setMessage(isTrainee ? "Submitted to your supervisor for cosign." : "Note finalized.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Submit failed");
@@ -135,6 +131,11 @@ export default function ClinicalNoteEditorPage() {
               {note && ` · ${formatStatusLabel(note.status)}`}
             </p>
           )}
+          {!readOnly && (
+            <p className="mt-2 text-sm text-ethio-ink-muted">
+              Complete all four sections — Subjective, Objective, Assessment, and Plan — before finalizing.
+            </p>
+          )}
         </div>
 
         {message && <p className="mt-4 alert-success">{message}</p>}
@@ -162,27 +163,11 @@ export default function ClinicalNoteEditorPage() {
         )}
 
         <form onSubmit={handleSave} className="mt-6 space-y-4">
-          {(["subjective", "objective", "assessment", "plan"] as const).map((field) => (
-            <label key={field} className="block text-sm font-medium text-ethio-ink">
-              {field.charAt(0).toUpperCase() + field.slice(1)}
-              <textarea
-                value={form[field]}
-                onChange={(e) => setForm((prev) => ({ ...prev, [field]: e.target.value }))}
-                rows={4}
-                readOnly={readOnly}
-                className="input-field mt-1 resize-y"
-                placeholder={
-                  field === "subjective"
-                    ? "Client reported concerns, mood, context…"
-                    : field === "objective"
-                      ? "Observations, affect, engagement…"
-                      : field === "assessment"
-                        ? "Clinical impression, progress…"
-                        : "Plan for next session, homework, referrals…"
-                }
-              />
-            </label>
-          ))}
+          <SoapNoteFields
+            form={form}
+            readOnly={readOnly}
+            onChange={(field, value) => setForm((prev) => ({ ...prev, [field]: value }))}
+          />
 
           {!readOnly && (
             <div className="flex flex-wrap gap-3 pt-2">

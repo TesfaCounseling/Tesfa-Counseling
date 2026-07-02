@@ -2,14 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import SiteHeader from "@/components/SiteHeader";
 import PageHero from "@/components/PageHero";
 import AdminDashboardPanel from "@/components/admin/AdminDashboardPanel";
 import AccountTabs, { type AccountTab } from "@/components/dashboard/AccountTabs";
+import ClientFeedbackForm from "@/components/dashboard/ClientFeedbackForm";
+import ClientScheduleAlerts from "@/components/dashboard/ClientScheduleAlerts";
 import CounselorDashboard from "@/components/dashboard/CounselorDashboard";
 import DashboardTabs from "@/components/dashboard/DashboardTabs";
 import SupervisionDashboard from "@/components/dashboard/SupervisionDashboard";
+import { syncLanguageFromProfile, useLanguage } from "@/components/LanguageProvider";
+import SiteHeader from "@/components/SiteHeader";
 import {
+  acknowledgeScheduleChange,
   cancelAppointment,
   getMe,
   getSupervisionOverview,
@@ -19,6 +23,7 @@ import {
   type ClinicalNote,
   type SupervisionTrainee,
 } from "@/lib/api";
+import { formatTranslation, isAppLanguage } from "@/lib/i18n";
 import { appointmentTimezoneLabel, formatAppointmentWhen, formatMoney } from "@/lib/format";
 import {
   canManagePlatform,
@@ -31,6 +36,7 @@ import {
 type ProviderTab = "counseling" | "supervision";
 
 export default function DashboardPage() {
+  const { t, language, setLanguage } = useLanguage();
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [userLoaded, setUserLoaded] = useState(false);
@@ -65,7 +71,13 @@ export default function DashboardPage() {
       return;
     }
     getMe()
-      .then((data) => setUser(data.user))
+      .then((data) => {
+        setUser(data.user);
+        if (isAppLanguage(data.user.preferred_language)) {
+          setLanguage(data.user.preferred_language);
+          syncLanguageFromProfile(data.user.preferred_language);
+        }
+      })
       .catch(() => {})
       .finally(() => setUserLoaded(true));
     listAppointments(true)
@@ -73,6 +85,29 @@ export default function DashboardPage() {
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load sessions"))
       .finally(() => setLoadingSessions(false));
   }, []);
+
+  useEffect(() => {
+    if (!token) return;
+
+    function refreshAppointments() {
+      listAppointments(true)
+        .then((data) => setAppointments(data.appointments))
+        .catch(() => {});
+    }
+
+    function onVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        refreshAppointments();
+      }
+    }
+
+    window.addEventListener("focus", refreshAppointments);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", refreshAppointments);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [token]);
 
   useEffect(() => {
     if (!userLoaded) return;
@@ -123,8 +158,8 @@ export default function DashboardPage() {
     if (provider) {
       return "Manage your schedule, sessions, and clinical documentation.";
     }
-    return "Manage sessions, find counselors, and stay connected with your Tesfa care team.";
-  }, [platformAdmin, provider, supervisor, dualRole]);
+    return t("dashboard.subtitleClient");
+  }, [platformAdmin, provider, supervisor, dualRole, t]);
 
   async function handleCancel(id: string) {
     try {
@@ -135,15 +170,26 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleDismissScheduleAlert(id: string) {
+    try {
+      await acknowledgeScheduleChange(id);
+      setAppointments((prev) =>
+        prev.map((appt) => (appt.id === id ? { ...appt, schedule_alert: undefined } : appt))
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to dismiss alert");
+    }
+  }
+
   if (!token) {
     return (
       <div className="page-shell">
         <SiteHeader showAuth={false} />
         <main className="flex flex-1 flex-col items-center justify-center page-pad py-12 text-center">
           <p className="text-base text-ethio-ink-muted">
-            Not signed in.{" "}
+            {t("dashboard.notSignedIn")}{" "}
             <Link href="/login" className="link-inline">
-              Log in
+              {t("nav.login")}
             </Link>
           </p>
         </main>
@@ -158,6 +204,7 @@ export default function DashboardPage() {
       loadingSessions={loadingSessions}
       error={error}
       onCancel={handleCancel}
+      onDismissScheduleAlert={handleDismissScheduleAlert}
     />
   );
 
@@ -175,7 +222,7 @@ export default function DashboardPage() {
     <div className="page-shell">
       <SiteHeader showAuth={false} />
 
-      <PageHero eyebrow="Your account" title="Your dashboard" subtitle={heroSubtitle} />
+      <PageHero eyebrow={t("dashboard.account")} title={t("dashboard.title")} subtitle={heroSubtitle} />
 
       <main className="mx-auto max-w-5xl page-pad pb-12 pt-6">
         {user && showPlatform && !showApprovals && !showCounseling && !showSupervision && (
@@ -232,19 +279,21 @@ export default function DashboardPage() {
                 <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ethio-gradient text-lg text-white shadow-ethio">
                   🔍
                 </span>
-                <span className="text-base font-semibold text-ethio-green-dark">Find a counselor</span>
+                <span className="text-base font-semibold text-ethio-green-dark">{t("dashboard.findCounselor")}</span>
               </Link>
             </div>
 
+            <ClientScheduleAlerts appointments={appointments} onDismiss={handleDismissScheduleAlert} />
+
             <section>
-              <h2 className="text-lg font-bold text-ethio-ink">Upcoming sessions</h2>
-              {loadingSessions && <p className="mt-3 text-sm text-ethio-ink-muted">Loading sessions…</p>}
+              <h2 className="text-lg font-bold text-ethio-ink">{t("dashboard.upcomingSessions")}</h2>
+              {loadingSessions && <p className="mt-3 text-sm text-ethio-ink-muted">{t("dashboard.loadingSessions")}</p>}
               {!loadingSessions && error && (
                 <div className="mt-3 space-y-2">
                   <p className="alert-error">{error}</p>
                   {error.toLowerCase().includes("session expired") && (
                     <Link href="/login?next=/dashboard" className="link-inline text-sm">
-                      Log in again
+                      {t("dashboard.logInAgain")}
                     </Link>
                   )}
                 </div>
@@ -255,15 +304,12 @@ export default function DashboardPage() {
                     <p className="font-semibold text-ethio-ink">{formatAppointmentWhen(appt, false)}</p>
                     <p className="text-xs text-ethio-ink-muted">{appointmentTimezoneLabel(appt, false)}</p>
                     <p className="text-sm text-ethio-ink-muted">
-                      {appt.provider_name || "Provider"}
-                      {appt.client_name ? ` · ${appt.client_name}` : ""} · {appt.duration_minutes} min · {appt.status}
-                      {appt.session_mode === "audio_only" && " · Audio"}
+                      {appt.provider_name || t("dashboard.providerFallback")}
+                      {appt.client_name ? ` · ${appt.client_name}` : ""} · {appt.duration_minutes}{" "}
+                      {t("dashboard.minutesShort")} · {appt.status}
+                      {appt.session_mode === "audio_only" && ` · ${t("dashboard.audio")}`}
                     </p>
-                    {appt.amount_cents === 0 ? (
-                      <p className="text-xs font-medium text-ethio-green">Pro bono</p>
-                    ) : (
-                      <p className="text-xs text-ethio-ink-muted">{formatMoney(appt.amount_cents, appt.currency)}</p>
-                    )}
+                    <p className="text-xs text-ethio-ink-muted">{formatMoney(appt.amount_cents, appt.currency)}</p>
                     <div className="mt-3 flex flex-wrap gap-3">
                       {appt.can_join_video && appt.video_room_url && (
                         <a
@@ -272,40 +318,43 @@ export default function DashboardPage() {
                           rel="noopener noreferrer"
                           className="btn-primary text-sm"
                         >
-                          {appt.session_mode === "audio_only" ? "Join audio session" : "Join video session"}
+                          {appt.session_mode === "audio_only" ? t("dashboard.joinAudio") : t("dashboard.joinVideo")}
                         </a>
                       )}
                       {appt.video_room_url && !appt.can_join_video && (
                         <span className="text-xs text-ethio-ink-muted">
-                          {appt.session_mode === "audio_only" ? "Audio" : "Video"} opens 15 minutes before session
+                          {formatTranslation(language, "dashboard.sessionOpensBefore", {
+                            mode:
+                              appt.session_mode === "audio_only" ? t("dashboard.audio") : t("dashboard.video"),
+                          })}
                         </span>
                       )}
                       <Link
                         href={`/counselors/${appt.provider_id}/book?reschedule=${appt.id}`}
                         className="text-sm font-semibold text-ethio-green-dark"
                       >
-                        Reschedule
+                        {t("dashboard.reschedule")}
                       </Link>
                       <button
                         type="button"
                         onClick={() => handleCancel(appt.id)}
                         className="text-sm font-semibold text-ethio-red"
                       >
-                        Cancel
+                        {t("dashboard.cancel")}
                       </button>
                     </div>
                   </div>
                 ))}
                 {!loadingSessions && !error && appointments.length === 0 && (
                   <div className="card-vibrant p-5 text-center">
-                    <p className="font-medium text-ethio-ink">No upcoming sessions</p>
-                    <p className="mt-1 text-sm text-ethio-ink-muted">
-                      Use <strong className="text-ethio-ink">Find a counselor</strong> above to book your first session.
-                    </p>
+                    <p className="font-medium text-ethio-ink">{t("dashboard.noSessions")}</p>
+                    <p className="mt-1 text-sm text-ethio-ink-muted">{t("dashboard.noSessionsHint")}</p>
                   </div>
                 )}
               </div>
             </section>
+
+            <ClientFeedbackForm />
           </>
         )}
       </main>

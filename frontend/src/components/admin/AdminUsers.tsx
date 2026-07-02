@@ -219,6 +219,11 @@ export default function AdminUsers() {
                           ))}
                         </select>
                       </label>
+                      {grantRole === "supervisor" && (
+                        <p className="mt-2 text-xs text-ethio-ink-muted">
+                          Supervisors can review trainee approvals and client feedback in the admin portal.
+                        </p>
+                      )}
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           type="button"
