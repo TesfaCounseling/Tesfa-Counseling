@@ -5,6 +5,16 @@ export function configuredApiUrl(): string {
   return process.env.NEXT_PUBLIC_API_URL || DEFAULT_API_URL;
 }
 
+function isPrivateLanHost(hostname: string): boolean {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    /^192\.168\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+    /^10\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostname) ||
+    /^172\.(1[6-9]|2\d|3[0-1])\.\d{1,3}\.\d{1,3}$/.test(hostname)
+  );
+}
+
 /**
  * API base URL for the current request context.
  * On a phone/tablet hitting the dev machine via LAN IP, rewrites localhost → that IP
@@ -18,13 +28,15 @@ export function getApiUrl(): string {
 
   try {
     const { hostname } = window.location;
-    const onLocalHost = hostname === "localhost" || hostname === "127.0.0.1";
-    if (onLocalHost) {
-      return configured;
-    }
-
     const url = new URL(configured);
-    if (url.hostname === "localhost" || url.hostname === "127.0.0.1") {
+    const apiIsLocal = url.hostname === "localhost" || url.hostname === "127.0.0.1";
+    // Only rewrite for LAN dev (phone testing). Never rewrite on Netlify/production domains.
+    if (
+      apiIsLocal &&
+      isPrivateLanHost(hostname) &&
+      hostname !== "localhost" &&
+      hostname !== "127.0.0.1"
+    ) {
       url.hostname = hostname;
       return url.toString().replace(/\/$/, "");
     }
