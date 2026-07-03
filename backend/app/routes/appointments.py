@@ -113,6 +113,23 @@ def _provider_is_bookable(user: User) -> bool:
     return False
 
 
+def _backfill_video_rooms(appointments: list) -> None:
+    changed = False
+    for appt in appointments:
+        if appt.status not in (
+            AppointmentStatus.SCHEDULED,
+            AppointmentStatus.CONFIRMED,
+            AppointmentStatus.IN_PROGRESS,
+        ):
+            continue
+        if appt.video_room_url:
+            continue
+        if ensure_appointment_video_room(appt):
+            changed = True
+    if changed:
+        db.session.commit()
+
+
 @appointments_bp.route("", methods=["GET"])
 @jwt_required()
 def list_appointments():
@@ -141,9 +158,14 @@ def list_appointments():
         )
 
     if request.args.get("upcoming") == "true":
+        now = datetime.now(timezone.utc)
         query = query.filter(
-            Appointment.starts_at >= datetime.now(timezone.utc),
-            Appointment.status.in_([AppointmentStatus.SCHEDULED, AppointmentStatus.CONFIRMED]),
+            Appointment.ends_at >= now - timedelta(minutes=30),
+            Appointment.status.in_([
+                AppointmentStatus.SCHEDULED,
+                AppointmentStatus.CONFIRMED,
+                AppointmentStatus.IN_PROGRESS,
+            ]),
         )
     elif request.args.get("upcoming") == "false":
         query = query.filter(
@@ -162,17 +184,7 @@ def list_appointments():
         appointments = query.limit(50).all()
 
     if request.args.get("upcoming") == "true":
-        rooms_added = False
-        for appt in appointments:
-            if appt.status in (
-                AppointmentStatus.SCHEDULED,
-                AppointmentStatus.CONFIRMED,
-                AppointmentStatus.IN_PROGRESS,
-            ) and not appt.video_room_url:
-                if ensure_appointment_video_room(appt):
-                    rooms_added = True
-        if rooms_added:
-            db.session.commit()
+        _backfill_video_rooms(appointments)
 
     return jsonify({"appointments": [_appointment_to_dict(a, user) for a in appointments]})
 
@@ -186,6 +198,7 @@ def get_appointment(appointment_id):
         return jsonify({"error": "Not Found"}), 404
     if user.id not in (appt.client_id, appt.provider_id):
         return jsonify({"error": "Forbidden"}), 403
+    _backfill_video_rooms([appt])
     return jsonify({"appointment": _appointment_to_dict(appt, user)})
 
 

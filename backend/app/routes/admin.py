@@ -422,6 +422,14 @@ def _daily_counts(model, date_field, days: int = 7) -> list[dict]:
     return result
 
 
+@admin_bp.route("/daily-check", methods=["GET"])
+@require_roles(UserRole.PLATFORM_ADMIN)
+def admin_daily_check(current_user):
+    from app.services.video import check_daily_api_key
+
+    return jsonify(check_daily_api_key())
+
+
 @admin_bp.route("/statistics", methods=["GET"])
 @require_roles(UserRole.PLATFORM_ADMIN)
 def admin_statistics(current_user):
