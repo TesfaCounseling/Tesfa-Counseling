@@ -422,6 +422,18 @@ def _daily_counts(model, date_field, days: int = 7) -> list[dict]:
     return result
 
 
+@admin_bp.route("/test-email", methods=["POST"])
+@require_roles(UserRole.PLATFORM_ADMIN)
+def admin_test_email(current_user):
+    from app.services.notifications import send_test_email
+
+    data = request.get_json(silent=True) or {}
+    to_address = (data.get("email") or current_user.email or "").strip()
+    result = send_test_email(to_address)
+    status = 200 if result.get("ok") else 400
+    return jsonify(result), status
+
+
 @admin_bp.route("/daily-check", methods=["GET"])
 @require_roles(UserRole.PLATFORM_ADMIN)
 def admin_daily_check(current_user):

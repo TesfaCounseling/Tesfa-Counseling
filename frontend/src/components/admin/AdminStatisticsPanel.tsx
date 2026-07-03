@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { getAdminStatistics, checkAdminDailyVideo, testAdminDailyRoom, backfillAdminVideoRooms, type AdminStatistics } from "@/lib/api";
+import { getAdminStatistics, checkAdminDailyVideo, testAdminDailyRoom, backfillAdminVideoRooms, sendAdminTestEmail, type AdminStatistics } from "@/lib/api";
 import { formatPricingType, formatStatusLabel } from "@/lib/format";
 
 function formatMoney(cents: number, currency = "USD") {
@@ -129,6 +129,19 @@ export default function AdminStatisticsPanel() {
     }
   };
 
+  const runTestEmail = async () => {
+    setDailyBusy(true);
+    setDailyStatus("");
+    try {
+      const result = await sendAdminTestEmail();
+      setDailyStatus(result.ok ? `✓ ${result.message}` : `✗ ${result.message}`);
+    } catch (err) {
+      setDailyStatus(err instanceof Error ? err.message : "Test email failed");
+    } finally {
+      setDailyBusy(false);
+    }
+  };
+
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -184,6 +197,9 @@ export default function AdminStatisticsPanel() {
           </button>
           <button type="button" onClick={runBackfill} disabled={dailyBusy} className="btn-primary text-sm">
             Backfill session rooms
+          </button>
+          <button type="button" onClick={runTestEmail} disabled={dailyBusy} className="btn-secondary text-sm">
+            Send test email
           </button>
         </div>
         {dailyStatus && <p className="mt-3 text-sm text-ethio-ink">{dailyStatus}</p>}

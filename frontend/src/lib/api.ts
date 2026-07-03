@@ -472,6 +472,14 @@ export function backfillAdminVideoRooms() {
   );
 }
 
+export function sendAdminTestEmail(email?: string) {
+  return apiFetch<{ ok: boolean; message: string }>(
+    "/admin/test-email",
+    { method: "POST", body: JSON.stringify(email ? { email } : {}) },
+    true
+  );
+}
+
 export function listAdminUsers(params?: { q?: string; limit?: number; offset?: number }) {
   const search = new URLSearchParams();
   if (params?.q) search.set("q", params.q);

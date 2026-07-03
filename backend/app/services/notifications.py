@@ -36,13 +36,33 @@ def send_email(to_address: str, subject: str, body: str) -> bool:
             if smtp_user and smtp_password:
                 server.login(smtp_user, smtp_password)
             server.send_message(msg)
+        logger.info("Email sent → %s | %s", to_address, subject)
         return True
+    except smtplib.SMTPException as exc:
+        logger.error("Email send failed (SMTP): %s", exc)
+        return False
     except OSError as exc:
-        logger.warning("Email send failed: %s", exc)
+        logger.error("Email send failed: %s", exc)
         return False
 
 
-def send_telegram_message(chat_id: str, text: str) -> bool:
+def smtp_configured() -> bool:
+    return bool(os.environ.get("SMTP_HOST", "").strip())
+
+
+def send_test_email(to_address: str) -> dict:
+    if not to_address:
+        return {"ok": False, "message": "No recipient email"}
+    if not smtp_configured():
+        return {"ok": False, "message": "SMTP_HOST is not set on Render"}
+    ok = send_email(
+        to_address,
+        "Tesfa Counseling test email",
+        "If you received this, SendGrid SMTP is working.",
+    )
+    if ok:
+        return {"ok": True, "message": f"Test email sent to {to_address}"}
+    return {"ok": False, "message": "Send failed — check Render logs for Email send failed"}
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     if not token or not chat_id:
         return False
