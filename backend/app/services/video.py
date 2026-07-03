@@ -150,6 +150,55 @@ def can_join_video_session(starts_at: datetime, ends_at: datetime, now: datetime
     return window_start <= now.timestamp() <= window_end
 
 
+def appointment_video_join_url(appointment_id: object) -> str:
+    api_base = os.environ.get(
+        "API_PUBLIC_URL", "https://tesfa-counseling.onrender.com/api/v1"
+    ).rstrip("/")
+    return f"{api_base}/appointments/{appointment_id}/video-join"
+
+
+def video_join_blocked_html(*, starts_at: datetime, timezone_name: str, too_early: bool) -> str:
+    from app.datetime_utils import format_in_timezone
+
+    app_url = os.environ.get("APP_URL", "https://www.tesfacounseling.com").rstrip("/")
+    when = format_in_timezone(starts_at, timezone_name or "UTC")
+    if too_early:
+        headline = "Video room not open yet"
+        detail = (
+            f"Your session video opens <strong>15 minutes before</strong> the scheduled start "
+            f"({when}). Please try again closer to your session time."
+        )
+    else:
+        headline = "Video session has ended"
+        detail = "The join window for this session has closed."
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{headline}</title></head>
+<body style="margin:0;font-family:Georgia,serif;background:#f0ebe3;padding:48px 16px;text-align:center;">
+  <div style="max-width:480px;margin:0 auto;background:#faf8f3;padding:32px;border-radius:8px;border:1px solid #e8e4dc;">
+    <h1 style="margin:0 0 16px;font-size:22px;color:#056b24;">{headline}</h1>
+    <p style="margin:0 0 24px;color:#4b5563;line-height:1.6;font-size:15px;">{detail}</p>
+    <a href="{app_url}/dashboard" style="display:inline-block;background:#078930;color:#fff;
+      text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold;">Go to dashboard</a>
+  </div>
+</body>
+</html>"""
+
+
+def video_join_window_status(
+    starts_at: datetime, ends_at: datetime, now: datetime | None = None
+) -> str:
+    """Return 'open', 'early', or 'closed' for the video join window."""
+    now = now or datetime.now(timezone.utc)
+    if can_join_video_session(starts_at, ends_at, now):
+        return "open"
+    start = as_utc(starts_at)
+    if now.timestamp() < start.timestamp() - 15 * 60:
+        return "early"
+    return "closed"
+
+
 def check_daily_api_key() -> dict:
     """Lightweight Daily API check for admin diagnostics."""
     api_key = daily_api_key()

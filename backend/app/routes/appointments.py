@@ -26,7 +26,13 @@ from app.services.notifications import (
     notify_appointment_rescheduled,
 )
 from app.services.scheduling import assert_slot_available, generate_available_slots
-from app.services.video import can_join_video_session, ensure_appointment_video_room
+from app.services.video import (
+    appointment_video_join_url,
+    can_join_video_session,
+    ensure_appointment_video_room,
+    video_join_blocked_html,
+    video_join_window_status,
+)
 from app.utils import ensure_client_org_membership, get_provider_organization_id, log_audit
 
 appointments_bp = Blueprint("appointments", __name__)
@@ -76,6 +82,8 @@ def _schedule_alert_for_user(appt: Appointment, user: User) -> dict | None:
 
 def _appointment_to_dict(appt: Appointment, user: User | None = None) -> dict:
     now = datetime.now(timezone.utc)
+    has_video = bool(appt.video_room_url)
+    can_join = has_video and can_join_video_session(appt.starts_at, appt.ends_at, now)
     payload = {
         "id": str(appt.id),
         "client_id": str(appt.client_id),
@@ -94,9 +102,10 @@ def _appointment_to_dict(appt: Appointment, user: User | None = None) -> dict:
         "currency": appt.currency,
         "provider_name": appt.provider.full_name if appt.provider else None,
         "client_name": appt.client.full_name if appt.client else None,
-        "video_room_url": appt.video_room_url,
+        "video_room_ready": has_video,
+        "video_room_url": appointment_video_join_url(appt.id) if can_join else None,
         "session_mode": appt.session_mode.value,
-        "can_join_video": bool(appt.video_room_url and can_join_video_session(appt.starts_at, appt.ends_at, now)),
+        "can_join_video": can_join,
     }
     if user:
         alert = _schedule_alert_for_user(appt, user)
@@ -191,10 +200,20 @@ def list_appointments():
 
 @appointments_bp.route("/<uuid:appointment_id>/video-join", methods=["GET"])
 def join_appointment_video(appointment_id):
-    """Short link target for emails — redirects to the Daily.co room."""
+    """Short link for emails — redirects to Daily.co only during the join window."""
     appt = db.session.get(Appointment, appointment_id)
     if not appt or not appt.video_room_url:
         return jsonify({"error": "Not Found", "message": "Video room not available"}), 404
+
+    status = video_join_window_status(appt.starts_at, appt.ends_at)
+    if status != "open":
+        html = video_join_blocked_html(
+            starts_at=appt.starts_at,
+            timezone_name=appt.client_timezone,
+            too_early=(status == "early"),
+        )
+        return html, 403, {"Content-Type": "text/html; charset=utf-8"}
+
     return redirect(appt.video_room_url, code=302)
 
 

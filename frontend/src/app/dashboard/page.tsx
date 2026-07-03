@@ -321,7 +321,7 @@ export default function DashboardPage() {
                           {appt.session_mode === "audio_only" ? t("dashboard.joinAudio") : t("dashboard.joinVideo")}
                         </a>
                       )}
-                      {appt.video_room_url && !appt.can_join_video && (
+                      {appt.video_room_ready && !appt.can_join_video && (
                         <span className="text-xs text-ethio-ink-muted">
                           {formatTranslation(language, "dashboard.sessionOpensBefore", {
                             mode:
@@ -329,7 +329,7 @@ export default function DashboardPage() {
                           })}
                         </span>
                       )}
-                      {!appt.video_room_url && (
+                      {!appt.video_room_ready && (
                         <span className="text-xs text-ethio-ink-muted">{t("dashboard.videoLinkPending")}</span>
                       )}
                       <Link

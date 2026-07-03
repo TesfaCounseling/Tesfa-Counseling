@@ -64,6 +64,7 @@ export interface Appointment {
   provider_name?: string | null;
   client_name?: string | null;
   video_room_url?: string | null;
+  video_room_ready?: boolean;
   session_mode?: "video" | "audio_only";
   can_join_video?: boolean;
   schedule_alert?: ScheduleAlert;

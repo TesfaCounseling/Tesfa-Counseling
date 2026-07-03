@@ -126,12 +126,12 @@ export default function CounselorDashboard({
                     {appt.session_mode === "audio_only" ? "Join audio session" : "Join video session"}
                   </a>
                 )}
-                {appt.video_room_url && !appt.can_join_video && (
+                {appt.video_room_ready && !appt.can_join_video && (
                   <span className="text-xs text-ethio-ink-muted">
                     {appt.session_mode === "audio_only" ? "Audio" : "Video"} opens 15 minutes before session
                   </span>
                 )}
-                {!appt.video_room_url && (
+                {!appt.video_room_ready && (
                   <span className="text-xs text-ethio-ink-muted">
                     Join link appears 15 minutes before start when{" "}
                     {appt.session_mode === "audio_only" ? "audio" : "video"} is enabled.
