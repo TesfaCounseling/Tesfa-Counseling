@@ -448,6 +448,30 @@ export function getAdminStatistics() {
   return apiFetch<AdminStatistics>("/admin/statistics", {}, true);
 }
 
+export function checkAdminDailyVideo() {
+  return apiFetch<{ configured: boolean; ok: boolean; message: string; detail?: string }>(
+    "/admin/daily-check",
+    {},
+    true
+  );
+}
+
+export function testAdminDailyRoom() {
+  return apiFetch<{ ok: boolean; message: string; room_name?: string; room_url?: string; detail?: string }>(
+    "/admin/daily-test-room",
+    { method: "POST" },
+    true
+  );
+}
+
+export function backfillAdminVideoRooms() {
+  return apiFetch<{ daily: { ok: boolean; message: string }; attempted: number; created: number; message: string }>(
+    "/admin/backfill-video-rooms",
+    { method: "POST" },
+    true
+  );
+}
+
 export function listAdminUsers(params?: { q?: string; limit?: number; offset?: number }) {
   const search = new URLSearchParams();
   if (params?.q) search.set("q", params.q);

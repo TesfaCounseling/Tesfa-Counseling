@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { getAdminStatistics, type AdminStatistics } from "@/lib/api";
+import { getAdminStatistics, checkAdminDailyVideo, testAdminDailyRoom, backfillAdminVideoRooms, type AdminStatistics } from "@/lib/api";
 import { formatPricingType, formatStatusLabel } from "@/lib/format";
 
 function formatMoney(cents: number, currency = "USD") {
@@ -82,6 +82,52 @@ export default function AdminStatisticsPanel() {
   const [stats, setStats] = useState<AdminStatistics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [dailyStatus, setDailyStatus] = useState("");
+  const [dailyBusy, setDailyBusy] = useState(false);
+
+  const runDailyCheck = async () => {
+    setDailyBusy(true);
+    setDailyStatus("");
+    try {
+      const result = await checkAdminDailyVideo();
+      setDailyStatus(result.ok ? `✓ ${result.message}` : `✗ ${result.message}${result.detail ? ` — ${result.detail}` : ""}`);
+    } catch (err) {
+      setDailyStatus(err instanceof Error ? err.message : "Daily check failed");
+    } finally {
+      setDailyBusy(false);
+    }
+  };
+
+  const runDailyTest = async () => {
+    setDailyBusy(true);
+    setDailyStatus("");
+    try {
+      const result = await testAdminDailyRoom();
+      setDailyStatus(
+        result.ok
+          ? `✓ ${result.message}${result.room_url ? ` — ${result.room_url}` : ""}`
+          : `✗ ${result.message}${result.detail ? ` — ${result.detail}` : ""}`
+      );
+    } catch (err) {
+      setDailyStatus(err instanceof Error ? err.message : "Daily test failed");
+    } finally {
+      setDailyBusy(false);
+    }
+  };
+
+  const runBackfill = async () => {
+    setDailyBusy(true);
+    setDailyStatus("");
+    try {
+      const result = await backfillAdminVideoRooms();
+      setDailyStatus(`✓ ${result.message} (${result.created}/${result.attempted})`);
+      await load();
+    } catch (err) {
+      setDailyStatus(err instanceof Error ? err.message : "Backfill failed");
+    } finally {
+      setDailyBusy(false);
+    }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -125,6 +171,27 @@ export default function AdminStatisticsPanel() {
 
   return (
     <div className="space-y-8">
+      <Section title="Video (Daily.co)">
+        <p className="mb-3 text-sm text-ethio-ink-muted">
+          Test whether Render has a valid Daily API key and create rooms for booked sessions.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={runDailyCheck} disabled={dailyBusy} className="btn-secondary text-sm">
+            Check API key
+          </button>
+          <button type="button" onClick={runDailyTest} disabled={dailyBusy} className="btn-secondary text-sm">
+            Create test room
+          </button>
+          <button type="button" onClick={runBackfill} disabled={dailyBusy} className="btn-primary text-sm">
+            Backfill session rooms
+          </button>
+        </div>
+        {dailyStatus && <p className="mt-3 text-sm text-ethio-ink">{dailyStatus}</p>}
+        <p className="mt-2 text-xs text-ethio-ink-muted">
+          Appointments with video: {appointments.with_video_room} · Upcoming: {appointments.upcoming}
+        </p>
+      </Section>
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ethio-ink-muted">
           Snapshot as of {new Date(stats.generated_at).toLocaleString()}

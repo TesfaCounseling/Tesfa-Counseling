@@ -430,6 +430,54 @@ def admin_daily_check(current_user):
     return jsonify(check_daily_api_key())
 
 
+@admin_bp.route("/daily-test-room", methods=["POST"])
+@require_roles(UserRole.PLATFORM_ADMIN)
+def admin_daily_test_room(current_user):
+    from app.services.video import create_test_daily_room
+
+    return jsonify(create_test_daily_room())
+
+
+@admin_bp.route("/backfill-video-rooms", methods=["POST"])
+@require_roles(UserRole.PLATFORM_ADMIN)
+def admin_backfill_video_rooms(current_user):
+    from app.services.video import check_daily_api_key, ensure_appointment_video_room
+
+    daily = check_daily_api_key()
+    if not daily.get("ok"):
+        return jsonify({"daily": daily, "created": 0, "attempted": 0, "message": "Fix Daily API key first"}), 400
+
+    now = datetime.now(timezone.utc)
+    appointments = (
+        Appointment.query.filter(
+            Appointment.video_room_url.is_(None),
+            Appointment.ends_at >= now - timedelta(hours=24),
+            Appointment.status.in_([
+                AppointmentStatus.SCHEDULED,
+                AppointmentStatus.CONFIRMED,
+                AppointmentStatus.IN_PROGRESS,
+            ]),
+        )
+        .order_by(Appointment.starts_at.asc())
+        .limit(100)
+        .all()
+    )
+
+    created = 0
+    for appt in appointments:
+        if ensure_appointment_video_room(appt):
+            created += 1
+    if created:
+        db.session.commit()
+
+    return jsonify({
+        "daily": daily,
+        "attempted": len(appointments),
+        "created": created,
+        "message": f"Created {created} video room(s) for recent appointments",
+    })
+
+
 @admin_bp.route("/statistics", methods=["GET"])
 @require_roles(UserRole.PLATFORM_ADMIN)
 def admin_statistics(current_user):
