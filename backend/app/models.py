@@ -495,12 +495,15 @@ class ClientFeedback(db.Model):
         UUID(as_uuid=True), db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     category: Mapped[FeedbackCategory] = mapped_column(
-        Enum(FeedbackCategory, name="feedback_category"), nullable=False
+        Enum(FeedbackCategory, values_callable=lambda x: [e.value for e in x], name="feedback_category"),
+        nullable=False,
     )
     subject: Mapped[str] = mapped_column(db.String(200), nullable=False)
     message: Mapped[str] = mapped_column(db.Text, nullable=False)
     status: Mapped[FeedbackStatus] = mapped_column(
-        Enum(FeedbackStatus, name="feedback_status"), default=FeedbackStatus.OPEN, nullable=False
+        Enum(FeedbackStatus, values_callable=lambda x: [e.value for e in x], name="feedback_status"),
+        default=FeedbackStatus.OPEN,
+        nullable=False,
     )
     resolved_at: Mapped[datetime | None] = mapped_column(db.DateTime(timezone=True), nullable=True)
     resolved_by_id: Mapped[uuid.UUID | None] = mapped_column(
