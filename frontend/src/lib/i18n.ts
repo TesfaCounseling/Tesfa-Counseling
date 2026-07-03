@@ -46,7 +46,8 @@ const en = {
     "Not for emergencies. If you are in crisis, contact local emergency services or a crisis line.",
   "home.missionText":
     "Tesfa Counseling is a virtual counseling center dedicated to serving Ethiopians and Ethiopian families throughout the diaspora. Our culturally informed and compassionate team provides professional counseling for individuals, couples, families, and young adults.",
-  "home.tesfaMeaning": "“Tesfa” means hope.",
+  "home.tesfaMeaning":
+    "“Tesfa” means hope — from the ancient Ethiopian language of Geʽez (ተስፋ). It reflects our commitment to bringing hope and support to those we serve.",
   "home.tagline": "Hope · Healing · Home",
   "home.teamEmptyTitle": "Counselors joining soon",
   "home.teamEmptyDesc":
@@ -188,7 +189,8 @@ const am: Record<keyof typeof en, string> = {
     "ለአደጋ ጊዜ አይደለም። በአስቸኳይ ሁኔታ ከሆኑ የአካባቢ መደገፊያ አገልግሎቶችን ወይም የአደጋ ጊዜ የረዳ ስልክ ይደውሉ።",
   "home.missionText":
     "ተስፋ ምክር የኢትዮጵያውያንንና የኢትዮጵያዊ ቤተሰቦችን በበሉ ዲያስፖራ ለማገልገል የተመሠረተ የበይነመረብ ምክር ማዕከል ነው። ባህላዊ ግንዛቤ ያለውና ርኅራኄ ያለው ቡድናችን ለግለሰቦች፣ ለጥንዶች፣ ለቤተሰቦች እና ለወጣቶች መደበኛ ምክር ይሰጣል።",
-  "home.tesfaMeaning": "«ተስፋ» ተስፋ ማለት ነው።",
+  "home.tesfaMeaning":
+    "«ተስፋ» ተስፋ ማለት ነው — ከጥንታዊ ግእዝ (ተስፋ) የተወሰደ ቃል። የምናገለግላቸውን ተስፋና ድጋፍ ለማገልገል ቁርጠኝነታችንን ያንፀባረባል።",
   "home.tagline": "ተስፋ · መድኃኒት · ቤት",
   "home.teamEmptyTitle": "ምክርኛዎች በቅርብ ይቀላቀላሉ",
   "home.teamEmptyDesc":

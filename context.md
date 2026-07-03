@@ -180,7 +180,7 @@ Role-based tabs via `AdminDashboardPanel`:
 
 ### UI / branding
 - [x] Env brand: Tesfa Counseling via `NEXT_PUBLIC_APP_NAME`
-- [x] Homepage copy: **“Tesfa” means hope.** (short tagline; Geʽez explanation removed per user)
+- [x] Homepage copy: **“Tesfa” means hope** — Geʽez explanation kept; removed “in Amharic” only
 - [x] Default timezone **UTC** (display uses client/provider local where implemented)
 - [x] Blue theme in `frontend/src/app/globals.css` (Worku-inspired, user approved)
 - [x] Shared components: `PageHero`, `ProviderCard`, `SlotPicker`, `CounselorList`, `AuthShell`
@@ -761,7 +761,7 @@ See **`DEPLOY.md`**. Summary:
 - CORS for `www.tesfacounseling.com` custom domain
 
 **UX / content**
-- i18n Amharic/English; homepage “Tesfa means hope.” copy shortened
+- i18n Amharic/English; homepage “Tesfa means hope” copy (dropped “in Amharic” only)
 - Client feedback + admin feedback panel; schedule alerts
 - Admin stats: removed pro bono / trainee rate display
 
