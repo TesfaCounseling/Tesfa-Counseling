@@ -329,6 +329,9 @@ export default function DashboardPage() {
                           })}
                         </span>
                       )}
+                      {!appt.video_room_url && (
+                        <span className="text-xs text-ethio-ink-muted">{t("dashboard.videoLinkPending")}</span>
+                      )}
                       <Link
                         href={`/counselors/${appt.provider_id}/book?reschedule=${appt.id}`}
                         className="text-sm font-semibold text-ethio-green-dark"

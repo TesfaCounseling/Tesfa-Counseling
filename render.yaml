@@ -54,3 +54,7 @@ services:
 
         sync: false
 
+      - key: DAILY_API_KEY
+
+        sync: false
+
