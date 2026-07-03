@@ -31,3 +31,7 @@ def therapist_publicly_listable(profile: TherapistProfile) -> bool:
 
 def therapist_photo_path(user_id: uuid.UUID) -> str:
     return f"/api/v1/therapists/{user_id}/photo"
+
+
+def provider_my_photo_path() -> str:
+    return "/api/v1/providers/me/photo"

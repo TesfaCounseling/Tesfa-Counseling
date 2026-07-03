@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import type { Provider } from "@/lib/api";
-import { parseProviderTags, resolveProviderPhotoUrl } from "@/lib/providerUtils";
+import { getApiUrl } from "@/lib/apiBase";
+import { isOwnProviderPhotoUrl, parseProviderTags, resolveProviderPhotoUrl } from "@/lib/providerUtils";
 
 function initials(name: string) {
   return name
@@ -106,10 +108,56 @@ export function ProviderAvatar({
   size?: "md" | "lg";
 }) {
   const className = `${size === "lg" ? "provider-avatar" : "provider-avatar provider-avatar-sm"} shrink-0`;
-  const resolvedPhoto = resolveProviderPhotoUrl(photoUrl);
+  const [src, setSrc] = useState<string | null>(null);
 
-  if (resolvedPhoto) {
-    return <img src={resolvedPhoto} alt="" className={`${className} object-cover`} loading="lazy" />;
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+
+    async function loadPhoto() {
+      if (!photoUrl) {
+        setSrc(null);
+        return;
+      }
+
+      if (photoUrl.startsWith("blob:")) {
+        setSrc(photoUrl);
+        return;
+      }
+
+      if (isOwnProviderPhotoUrl(photoUrl)) {
+        const token = localStorage.getItem("access_token");
+        if (!token) {
+          setSrc(null);
+          return;
+        }
+        try {
+          const res = await fetch(`${getApiUrl()}/providers/me/photo`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (!res.ok) throw new Error("Photo unavailable");
+          const blob = await res.blob();
+          objectUrl = URL.createObjectURL(blob);
+          if (!cancelled) setSrc(objectUrl);
+        } catch {
+          if (!cancelled) setSrc(null);
+        }
+        return;
+      }
+
+      if (!cancelled) setSrc(resolveProviderPhotoUrl(photoUrl));
+    }
+
+    loadPhoto();
+
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [photoUrl]);
+
+  if (src) {
+    return <img src={src} alt="" className={`${className} object-cover`} loading="lazy" />;
   }
 
   return (

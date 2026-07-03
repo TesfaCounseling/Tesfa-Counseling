@@ -1,6 +1,6 @@
 import uuid
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, make_response, request
 from flask_jwt_extended import jwt_required
 
 from app.extensions import db
@@ -9,7 +9,7 @@ from app.provider_profile_utils import (
     ALLOWED_PHOTO_MIME_TYPES,
     MAX_PHOTO_BYTES,
     therapist_has_photo,
-    therapist_photo_path,
+    provider_my_photo_path,
     therapist_public_profile_complete,
 )
 from app.utils import get_current_user, log_audit
@@ -29,7 +29,7 @@ def _profile_response(user: User) -> dict | None:
             "license_number": profile.license_number,
             "license_authority": profile.license_authority,
             "approval_status": profile.approval_status.value,
-            "photo_url": therapist_photo_path(user.id) if therapist_has_photo(profile) else None,
+            "photo_url": provider_my_photo_path() if therapist_has_photo(profile) else None,
             "public_profile_complete": therapist_public_profile_complete(profile),
         }
     if user.trainee_profile:
@@ -108,6 +108,23 @@ def update_my_profile():
     db.session.commit()
 
     return jsonify({"profile": _profile_response(user)})
+
+
+@providers_bp.route("/me/photo", methods=["GET"])
+@jwt_required()
+def get_my_photo():
+    user = get_current_user()
+    if not user or not user.therapist_profile:
+        return jsonify({"error": "Not Found", "message": "No counselor profile for this account"}), 404
+
+    profile = user.therapist_profile
+    if not therapist_has_photo(profile):
+        return jsonify({"error": "Not Found", "message": "No photo uploaded"}), 404
+
+    response = make_response(profile.photo_data)
+    response.headers["Content-Type"] = profile.photo_mime_type
+    response.headers["Cache-Control"] = "private, max-age=60"
+    return response
 
 
 @providers_bp.route("/me/photo", methods=["POST"])

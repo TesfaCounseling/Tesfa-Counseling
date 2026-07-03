@@ -57,7 +57,11 @@ export function counselorBriefIntro(provider: Provider): string {
 
 export function resolveProviderPhotoUrl(photoUrl: string | null | undefined): string | null {
   if (!photoUrl) return null;
-  if (photoUrl.startsWith("http")) return photoUrl;
+  if (photoUrl.startsWith("http") || photoUrl.startsWith("blob:")) return photoUrl;
   const apiRoot = getApiOrigin();
   return `${apiRoot}${photoUrl.startsWith("/") ? photoUrl : `/${photoUrl}`}`;
+}
+
+export function isOwnProviderPhotoUrl(photoUrl: string | null | undefined): boolean {
+  return Boolean(photoUrl?.includes("/providers/me/photo"));
 }

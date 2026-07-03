@@ -44,6 +44,7 @@ export default function ProviderProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [localPhotoPreview, setLocalPhotoPreview] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -94,6 +95,8 @@ export default function ProviderProfilePage() {
 
   async function handlePhotoChange(file: File | null) {
     if (!file || !profile) return;
+    const previewUrl = URL.createObjectURL(file);
+    setLocalPhotoPreview(previewUrl);
     setUploadingPhoto(true);
     setError("");
     setSuccess("");
@@ -108,6 +111,8 @@ export default function ProviderProfilePage() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Photo upload failed");
     } finally {
+      URL.revokeObjectURL(previewUrl);
+      setLocalPhotoPreview(null);
       setUploadingPhoto(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
@@ -175,7 +180,11 @@ export default function ProviderProfilePage() {
                 JPEG, PNG, or WebP · max 2 MB. Shown on the homepage and counselor listings.
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-4">
-                <ProviderAvatar name={fullName} photoUrl={profile.photo_url} size="lg" />
+                <ProviderAvatar
+                  name={fullName}
+                  photoUrl={localPhotoPreview || profile.photo_url}
+                  size="lg"
+                />
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
