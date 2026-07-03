@@ -58,3 +58,7 @@ services:
 
         sync: false
 
+      - key: APP_URL
+
+        sync: false
+

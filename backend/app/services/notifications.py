@@ -8,10 +8,12 @@ from email.message import EmailMessage
 
 import requests
 
+from app.services import email_templates
+
 logger = logging.getLogger(__name__)
 
 
-def send_email(to_address: str, subject: str, body: str) -> bool:
+def send_email(to_address: str, subject: str, body: str, html_body: str | None = None) -> bool:
     if not to_address:
         return False
 
@@ -31,6 +33,8 @@ def send_email(to_address: str, subject: str, body: str) -> bool:
         msg["From"] = from_address
         msg["To"] = to_address
         msg.set_content(body)
+        if html_body:
+            msg.add_alternative(html_body, subtype="html")
         with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
             server.starttls()
             if smtp_user and smtp_password:
@@ -55,14 +59,14 @@ def send_test_email(to_address: str) -> dict:
         return {"ok": False, "message": "No recipient email"}
     if not smtp_configured():
         return {"ok": False, "message": "SMTP_HOST is not set on Render"}
-    ok = send_email(
-        to_address,
-        "Tesfa Counseling test email",
-        "If you received this, SendGrid SMTP is working.",
-    )
+    plain, html_body = email_templates.test_email()
+    ok = send_email(to_address, "Tesfa Counseling test email", plain, html_body)
     if ok:
         return {"ok": True, "message": f"Test email sent to {to_address}"}
     return {"ok": False, "message": "Send failed — check Render logs for Email send failed"}
+
+
+def send_telegram_message(chat_id: str, text: str) -> bool:
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     if not token or not chat_id:
         return False
@@ -78,10 +82,10 @@ def send_test_email(to_address: str) -> dict:
         return False
 
 
-def _notify_users_email(users, subject: str, body: str) -> None:
+def _notify_users_email(users, subject: str, plain_body: str, html_body: str | None = None) -> None:
     for user in users:
         if user and user.email:
-            send_email(user.email, subject, body)
+            send_email(user.email, subject, plain_body, html_body)
 
 
 def _notify_users_telegram(users, message: str) -> None:
@@ -104,15 +108,25 @@ def notify_appointment_booked(appointment, client, provider) -> None:
         f"Starts: {when}\n"
         f"Duration: {appointment.duration_minutes} min"
     )
-    video_line = f"\nVideo room: {appointment.video_room_url}" if appointment.video_room_url else ""
-    email_body = message + video_line
-
     _notify_users_telegram([client, provider], f"✅ {message}")
-    _notify_users_email(
-        [client, provider],
-        "Session confirmed",
-        email_body,
-    )
+
+    for user, is_provider, tz_name in (
+        (client, False, appointment.client_timezone),
+        (provider, True, appointment.provider_timezone),
+    ):
+        if not user or not user.email:
+            continue
+        plain, html_body = email_templates.appointment_booked_email(
+            recipient_name=user.first_name or user.full_name,
+            provider_name=provider.full_name,
+            client_name=client.full_name,
+            starts_at=appointment.starts_at,
+            timezone_name=tz_name,
+            duration_minutes=appointment.duration_minutes,
+            video_room_url=appointment.video_room_url,
+            is_provider=is_provider,
+        )
+        send_email(user.email, "Session confirmed — Tesfa Counseling", plain, html_body)
 
 
 def notify_appointment_cancelled(appointment, client, provider, cancelled_by) -> None:
@@ -124,7 +138,21 @@ def notify_appointment_cancelled(appointment, client, provider, cancelled_by) ->
         f"Cancelled by: {cancelled_by.full_name}"
     )
     _notify_users_telegram([client, provider], f"❌ {message}")
-    _notify_users_email([client, provider], "Session cancelled", message)
+
+    for user, tz_name in (
+        (client, appointment.client_timezone),
+        (provider, appointment.provider_timezone),
+    ):
+        if not user or not user.email:
+            continue
+        plain, html_body = email_templates.appointment_cancelled_email(
+            recipient_name=user.first_name or user.full_name,
+            provider_name=provider.full_name,
+            starts_at=appointment.starts_at,
+            timezone_name=tz_name,
+            cancelled_by_name=cancelled_by.full_name,
+        )
+        send_email(user.email, "Session cancelled — Tesfa Counseling", plain, html_body)
 
 
 def notify_appointment_rescheduled(appointment, client, provider, rescheduled_by) -> None:
@@ -138,7 +166,25 @@ def notify_appointment_rescheduled(appointment, client, provider, rescheduled_by
         f"Updated by: {rescheduled_by.full_name}"
     )
     _notify_users_telegram([client, provider], f"📅 {message}")
-    _notify_users_email([client, provider], "Session rescheduled", message)
+
+    for user, is_provider, tz_name in (
+        (client, False, appointment.client_timezone),
+        (provider, True, appointment.provider_timezone),
+    ):
+        if not user or not user.email:
+            continue
+        plain, html_body = email_templates.appointment_rescheduled_email(
+            recipient_name=user.first_name or user.full_name,
+            provider_name=provider.full_name,
+            client_name=client.full_name,
+            starts_at=appointment.starts_at,
+            timezone_name=tz_name,
+            duration_minutes=appointment.duration_minutes,
+            rescheduled_by_name=rescheduled_by.full_name,
+            video_room_url=appointment.video_room_url,
+            is_provider=is_provider,
+        )
+        send_email(user.email, "Session rescheduled — Tesfa Counseling", plain, html_body)
 
 
 def get_platform_admin_users():
@@ -189,5 +235,12 @@ def notify_client_feedback_backup(feedback, client) -> None:
         f"{feedback.message}"
     )
     staff = get_client_feedback_staff_users()
-    _notify_users_email(staff, f"Client {category_label}: {feedback.subject}", message)
+    plain, html_body = email_templates.client_feedback_email(
+        category_label=category_label,
+        client_name=client.full_name,
+        client_email=client.email,
+        subject=feedback.subject,
+        message=feedback.message,
+    )
+    _notify_users_email(staff, f"Client {category_label}: {feedback.subject}", plain, html_body)
     _notify_users_telegram(staff, f"📩 {category_label} from {client.full_name}\n{feedback.subject}")
