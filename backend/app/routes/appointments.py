@@ -160,6 +160,20 @@ def list_appointments():
         appointments = query.order_by(Appointment.starts_at.asc()).limit(50).all()
     else:
         appointments = query.limit(50).all()
+
+    if request.args.get("upcoming") == "true":
+        rooms_added = False
+        for appt in appointments:
+            if appt.status in (
+                AppointmentStatus.SCHEDULED,
+                AppointmentStatus.CONFIRMED,
+                AppointmentStatus.IN_PROGRESS,
+            ) and not appt.video_room_url:
+                if ensure_appointment_video_room(appt):
+                    rooms_added = True
+        if rooms_added:
+            db.session.commit()
+
     return jsonify({"appointments": [_appointment_to_dict(a, user) for a in appointments]})
 
 
