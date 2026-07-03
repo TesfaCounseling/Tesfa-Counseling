@@ -2,7 +2,7 @@
 
 > Living handoff doc. Update this file as work progresses so the next agent can continue without re-discovering decisions.
 >
-> **Last updated:** 2026-06-17 — consolidated to `C:\dev\tesfa-counseling`; E2E UX fixes; Tesfa Counseling rebrand
+> **Last updated:** 2026-07-03 — production deploy live; Daily.co video, SendGrid email, i18n, custom domain CORS
 
 ---
 
@@ -18,11 +18,12 @@
 
 | Layer | Tech | Deploy target |
 |-------|------|---------------|
-| Frontend | Next.js 15, TypeScript, Tailwind | Netlify |
-| API | Flask, JWT, SQLAlchemy, Alembic | Render |
-| DB | SQLite (dev) / Postgres (prod) | Render Postgres |
-| Video | Daily.co (partial) | `DAILY_API_KEY` |
-| Notifications | Email stub + Telegram stub + reminders CLI | SMTP optional |
+| Frontend | Next.js 15, TypeScript, Tailwind | Netlify — `https://tesfa-counseling.netlify.app` + `https://www.tesfacounseling.com` |
+| API | Flask, JWT, SQLAlchemy, Alembic | Render — `https://tesfa-counseling.onrender.com` |
+| DB | SQLite (dev) / Postgres (prod) | Netlify Database → `DATABASE_URL` on Render |
+| Video | Daily.co | `DAILY_API_KEY` on Render (required for join URLs) |
+| Email | SendGrid SMTP | `SMTP_*` on Render; domain `tesfacounseling.com` authenticated in SendGrid |
+| Notifications | HTML email + Telegram stub + reminders CLI | Email live in prod when SMTP configured |
 
 **Workspace (canonical):** `C:\dev\tesfa-counseling` — full project on local disk. Open this folder in Cursor for development and Git.
 
@@ -70,17 +71,24 @@ Users only browse **:3000**. The frontend calls **:5050** via `NEXT_PUBLIC_API_U
 - [x] **Counselor search filters** — language + specialty on `/counselors`
 - [x] **Provider profile edit** — `/provider/profile`, `GET/PATCH /providers/me`
 - [x] **Languages required** at registration for counselors/trainees
-- [x] Email notifications stub on book/cancel/reschedule (SMTP optional; logs to console in dev)
+- [x] Email notifications on book/cancel/reschedule — **HTML branded templates** + plain-text fallback (`email_templates.py`, `notifications.py`)
+- [x] SendGrid SMTP in production (`smtp.sendgrid.net`, user `apikey`, API key as password)
 - [x] Telegram notification stub on book/cancel
 - [x] Reminders CLI: `flask send-reminders`
 - [x] Session pricing UI in **dollars** (stored as cents in DB); shows current rates
 
-### Phase 3 — Video (partial)
+### Phase 3 — Video (production-ready)
 - [x] `video_room_name`, `video_room_url` on `Appointment` model
-- [x] Daily.co room creation on book/reschedule (`backend/app/services/video.py`)
-- [x] Dashboard **Join video session** button (15 min before → 30 min after session)
+- [x] Daily.co room creation on book/reschedule + **backfill** on `GET /appointments?upcoming=true` (`video.py`)
+- [x] Dashboard **Join video session** button — only in join window (**15 min before → 30 min after** session)
+- [x] API hides direct Daily URL until join window; exposes `video_room_ready` + `can_join_video`
+- [x] Short join route: `GET /appointments/:id/video-join` — redirects to Daily when open; friendly HTML page if too early/closed
+- [x] Booking/reschedule emails say video opens 15 min before (no early clickable Daily link)
+- [x] Admin diagnostics: `GET /admin/daily-check`, `POST /admin/daily-test-room`, `POST /admin/backfill-video-rooms` (+ buttons in Statistics panel)
+- [x] Health check flags: `daily_api_key_set`, `smtp_configured`
+- [x] `backend/scripts/test_daily.py` — run on Render shell to verify Daily + backfill
 - [ ] Embedded waiting room / in-app video UI — not done
-- [ ] Requires `DAILY_API_KEY` in production; without it, booking works but no join URL
+- [x] Requires `DAILY_API_KEY` on Render — without it, booking works but no join URL
 
 ### Phase 4 — Clinical notes & supervision (partial)
 - [x] `ClinicalNote` model (SOAP: subjective, objective, assessment, plan)
@@ -126,7 +134,7 @@ Users only browse **:3000**. The frontend calls **:5050** via `NEXT_PUBLIC_API_U
 - [x] Product name **Tesfa Counseling** everywhere (was Counsel Connect / ethio-counseling in configs)
 - [x] Render service: `tesfa-counseling-api` · npm package: `tesfa-counseling-frontend`
 - [x] New seed default admin: `admin@tesfacounseling.local` (migrated DBs may still use `admin@counselconnect.local`)
-- [ ] **Git** — not initialized yet; init and push from `C:\dev\tesfa-counseling` when ready
+- [x] **Git** — repo `TesfaCounseling/Tesfa-Counseling`, branch `main`, auto-deploy Render + Netlify on push
 
 ### Admin & roles (solo-operator config)
 - [x] **Grant/revoke staff roles:** `POST/DELETE /api/v1/admin/users/<id>/roles`
@@ -156,7 +164,7 @@ Role-based tabs via `AdminDashboardPanel`:
 - **Users** — search, enable/disable, grant/revoke supervisor/platform_admin (`platform_admin` only)
 - **Activity** — audit log (`platform_admin` only)
 - **Organizations** — view/edit practice orgs (`platform_admin` only)
-- **Statistics** — platform stats (`platform_admin` only)
+- [x] **Statistics** — platform stats (`platform_admin` only); **Video (Daily.co)** + **Send test email** diagnostics
 
 **Access:**
 | Role | Dashboard experience |
@@ -172,7 +180,7 @@ Role-based tabs via `AdminDashboardPanel`:
 
 ### UI / branding
 - [x] Env brand: Tesfa Counseling via `NEXT_PUBLIC_APP_NAME`
-- [x] Homepage still uses **Tesfa** (Geʽez) + Ethiopian diaspora copy — user-approved pilot positioning
+- [x] Homepage copy: **“Tesfa” means hope.** (short tagline; Geʽez explanation removed per user)
 - [x] Default timezone **UTC** (display uses client/provider local where implemented)
 - [x] Blue theme in `frontend/src/app/globals.css` (Worku-inspired, user approved)
 - [x] Shared components: `PageHero`, `ProviderCard`, `SlotPicker`, `CounselorList`, `AuthShell`
@@ -180,11 +188,34 @@ Role-based tabs via `AdminDashboardPanel`:
 - [x] Brand name from env: `frontend/src/lib/brand.ts` + `NEXT_PUBLIC_APP_NAME`
 - [x] Unified `card-vibrant` + `max-w-5xl` layout
 
-### Production deploy config
-- [x] `render.yaml` — Flask API, `flask db upgrade` on deploy, health check
+### Production deploy (live — 2026-07)
+- [x] `render.yaml` — Flask API, `flask db upgrade` on deploy, health check, `DAILY_API_KEY`, `APP_URL` (sync: false)
 - [x] `netlify.toml` — Next.js plugin (no manual publish path)
 - [x] `DEPLOY.md` — step-by-step Netlify + Render guide
 - [x] Postgres URL fix: `postgres://` → `postgresql://` in `config.py`
+- [x] `frontend/src/lib/apiBase.ts` — do not rewrite API URL to Netlify hostname on production
+- [x] **Custom domain** `www.tesfacounseling.com` on Netlify — add all origins to Render `CORS_ORIGINS` (include `http://` variants while SSL provisioning)
+- [x] **SendGrid** — domain auth on `tesfacounseling.com` (GoDaddy DNS); use API key for SMTP (not account password)
+- [x] Migrations run on Render deploy; manual shell used once for enum fixes (`g7`, `h8` migrations)
+
+### i18n (Amharic / English)
+- [x] `frontend/src/lib/i18n.ts` — language toggle, `LANGUAGE_STORAGE_KEY`
+- [x] Homepage, dashboard, booking, schedule alerts translated
+
+### Client feedback & schedule alerts
+- [x] `ClientFeedback` model + migration
+- [x] Feedback API + client form on dashboard
+- [x] Admin feedback panel for platform owner
+- [x] Schedule change alerts (client + provider) after reschedule — migration `h8c9d0e1f2a3`
+
+### Provider photos
+- [x] Provider photo upload + `GET /providers/me/photo` for authenticated preview
+- [x] Counselor listing fixes
+
+### Other UX (2026-06 – 2026-07)
+- [x] Login redirect with `?next=`
+- [x] Mobile header polish
+- [x] Admin statistics: removed pro bono / trainee rate from stats API and display
 
 ---
 
@@ -196,12 +227,13 @@ Role-based tabs via `AdminDashboardPanel`:
 | 4 | Secure messaging | Not started |
 | 3 | Full video UX (embedded room, waiting room) | Partial |
 | 2 | Production Telegram webhook | Stub only |
-| 2 | Scheduled email reminders | CLI exists; no email cron |
+| 2 | Scheduled email reminders | CLI exists; no email cron (1h/24h Telegram only) |
+| — | Custom domain SSL fully forced HTTPS | May still be provisioning on Netlify |
 | — | **org_admin** (multi-clinic delegated admin) | Role in DB; removed from grant UI until client wants it |
 | — | Multi-currency pricing | USD only; counselor sets rate |
 | — | Sliding scale tiers at booking | Type exists; no tier UI |
 | — | Client country → currency display | Discussed; not built |
-| — | i18n UI | English only |
+| — | i18n UI | **Amharic + English** on key flows; not full app coverage |
 | — | `GET /therapists/:id` | Book page still loads full list |
 | — | Optional intake for licensed counselors | Pending client decision |
 | — | Provider profile edit for existing counselors with blank languages | Manual/admin or re-save via UI |
@@ -340,13 +372,14 @@ backend/
 │   │   ├── therapists.py      # Public GET /therapists
 │   │   ├── providers.py       # GET/PATCH /providers/me
 │   │   ├── availability.py
-│   │   ├── appointments.py    # book, cancel, reschedule, get, slots
-│   │   ├── health.py
+│   │   ├── appointments.py    # book, cancel, reschedule, get, slots, video-join redirect
+│   │   ├── health.py            # daily_api_key_set, smtp_configured
 │   │   └── telegram.py
 │   ├── services/
 │   │   ├── scheduling.py
-│   │   ├── notifications.py   # email + telegram
-│   │   └── video.py           # Daily.co rooms
+│   │   ├── notifications.py   # HTML email + telegram
+│   │   ├── email_templates.py # branded HTML for session emails
+│   │   └── video.py           # Daily.co rooms, join window, diagnostics
 │   └── tasks/reminders.py
 ├── migrations/versions/
 │   ├── 989683a912d3_initial_schema.py
@@ -373,7 +406,12 @@ backend/
 | GET | `/appointments/:id` | JWT | Single appointment |
 | POST | `/appointments/:id/cancel` | JWT | |
 | POST | `/appointments/:id/reschedule` | JWT | Body: `starts_at`, `duration_minutes` |
+| GET | `/appointments/:id/video-join` | No | Redirect to Daily when join window open |
 | GET | `/appointments/providers/:id/slots` | JWT | |
+| GET | `/admin/daily-check` | JWT + platform_admin | Verify Daily API key |
+| POST | `/admin/daily-test-room` | JWT + platform_admin | Create test Daily room |
+| POST | `/admin/backfill-video-rooms` | JWT + platform_admin | Create missing video rooms |
+| POST | `/admin/test-email` | JWT + platform_admin | Send SMTP test email |
 | GET | `/admin/overview`, `/users`, `/providers`, `/audit-logs`, `/organizations` | JWT + admin role | |
 | POST | `/admin/therapists/:id/approve|reject` | JWT + admin | |
 | POST | `/admin/trainees/:id/approve|reject` | JWT + admin | |
@@ -429,12 +467,14 @@ DATABASE_URL=                          # unset for local SQLite; set for Postgre
 CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 SECRET_KEY=...
 JWT_SECRET_KEY=...
-DAILY_API_KEY=                    # optional — video rooms
-SMTP_HOST=                        # optional — email; logs if empty
+DAILY_API_KEY=                    # required in prod for video
+SMTP_HOST=smtp.sendgrid.net         # SendGrid in prod
 SMTP_PORT=587
-SMTP_USER=
-SMTP_PASSWORD=
-SMTP_FROM=noreply@yourdomain.com
+SMTP_USER=apikey                    # literal string "apikey" for SendGrid
+SMTP_PASSWORD=                      # SendGrid API key (SG....)
+SMTP_FROM=noreply@tesfacounseling.com
+APP_URL=https://www.tesfacounseling.com
+API_PUBLIC_URL=https://tesfa-counseling.onrender.com/api/v1
 ADMIN_EMAIL=admin@tesfacounseling.local
 ADMIN_PASSWORD=admin-change-me
 ```
@@ -449,11 +489,21 @@ NEXT_PUBLIC_APP_NAME=Tesfa Counseling
 
 ## Production deploy
 
+**Live URLs:**
+| Service | URL |
+|---------|-----|
+| Frontend (Netlify) | `https://tesfa-counseling.netlify.app` |
+| Custom domain | `https://www.tesfacounseling.com` |
+| API (Render) | `https://tesfa-counseling.onrender.com` |
+
 See **`DEPLOY.md`**. Summary:
-1. Render: API from `render.yaml`, set `DATABASE_URL`, `CORS_ORIGINS`, secrets
-2. Netlify: frontend, set `NEXT_PUBLIC_API_URL`, `NEXT_PUBLIC_APP_NAME`
+1. Render: API from `render.yaml`, set `DATABASE_URL`, `CORS_ORIGINS`, `DAILY_API_KEY`, `SMTP_*`, secrets
+2. Netlify: frontend, set `NEXT_PUBLIC_API_URL=https://tesfa-counseling.onrender.com/api/v1`
 3. Run once: `python seed_admin.py`, `python migrate_client_org_links.py`
 4. Migrations run automatically via `preDeployCommand: flask db upgrade`
+5. **CORS_ORIGINS** must include every frontend origin (Netlify + custom domain + `http://` while SSL pending), e.g.:
+   `https://tesfa-counseling.netlify.app,https://www.tesfacounseling.com,https://tesfacounseling.com`
+6. After env var changes on Render, **Restart service** (or deploy) — saving env alone does not reload workers
 
 ---
 
@@ -468,11 +518,14 @@ See **`DEPLOY.md`**. Summary:
 7. **Corrupt `.next` cache** — symptoms: `Internal Server Error`, `Cannot find module './611.js'`. Fix: stop dev server, delete `.next`, restart.
 8. **Schedule "Add hours"** — fixed React async form reset bug (capture form ref before `await`).
 9. **Language filter** only shows languages from **approved** providers with `languages` field populated.
-10. **Video join** — needs `DAILY_API_KEY`; window is 15 min before to 30 min after session.
-11. **Tailwind `@apply group`** — not allowed in `globals.css`; add `group` class on the React element instead.
-12. **Remember to start Flask** when testing backend changes (user rule).
-13. **Supervisor intakes** — use `/supervision/intakes`, not the cosign queue on `/supervision`.
-14. **Legacy folders** — ignore `g:\My Drive\Ethio Counceling` and `C:\dev\ethio-counseling` after confirming new setup works.
+10. **Video join** — needs `DAILY_API_KEY` on Render; window is 15 min before to 30 min after session; `/video-join` enforces same window
+11. **SendGrid SMTP** — `SMTP_USER` must be `apikey`, not your SendGrid login email; domain must be authenticated in SendGrid
+12. **Custom domain CORS** — registration/API fails with “Cannot reach the API” if `www.tesfacounseling.com` not in `CORS_ORIGINS`
+13. **Booking emails** — sent at book time only; rebook or use admin test email to verify SMTP after config changes
+14. **Tailwind `@apply group`** — not allowed in `globals.css`; add `group` class on the React element instead
+15. **Remember to start Flask** when testing backend changes (user rule)
+16. **Supervisor intakes** — use `/supervision/intakes`, not the cosign queue on `/supervision`
+17. **Legacy folders** — ignore `g:\My Drive\Ethio Counceling` and `C:\dev\ethio-counseling` after confirming new setup works
 
 ---
 
@@ -500,6 +553,13 @@ See **`DEPLOY.md`**. Summary:
 | Trainee doesn't see supervisor | `supervisor_name` on provider profile + card on `CounselorDashboard.tsx` |
 | Supervisor can't see client intake | New `/supervision/intakes` + `GET /intake/supervision` (separate from cosign queue) |
 | Split Drive + C:\dev workspaces | Consolidated to `C:\dev\tesfa-counseling` only |
+| Production login/admin 500 | Postgres migrations + enum `values_callable` fixes (feedback, schedule_change_type) |
+| Netlify API calls hit wrong host | `apiBase.ts` — no LAN rewrite on production domains |
+| No video link on dashboard | `DAILY_API_KEY` missing on Render; backfill on upcoming appointments list |
+| SendGrid no emails | SMTP env vars + restart; API key not account password |
+| Custom domain register fails | Add domain to `CORS_ORIGINS` on Render |
+| Long Daily URL in email | Short `/video-join` link; HTML shows “Video room” text |
+| Video link works before session | Join window enforced on API, dashboard, and `/video-join` |
 
 ---
 
@@ -545,15 +605,14 @@ See **`DEPLOY.md`**. Summary:
 
 ## Suggested next work (priority order)
 
-1. **`git init` + push to GitHub** — from `C:\dev\tesfa-counseling` (migrations already in repo; Render runs `flask db upgrade` on deploy)
-2. **Production deploy** — Netlify (frontend) + Render (API) + Postgres (Neon or Render)
+1. **Custom domain SSL** — finish Netlify certificate; force HTTPS; trim `http://` from CORS when done
+2. **Scheduled email reminders** — cron on Render for 24h/1h before session (CLI exists; Telegram only today)
 3. **Stripe** — charge card at booking using stored `amount_cents`
 4. **Multi-currency** — counselor picks currency; client sees converted display
 5. **Sliding scale UI** — client selects tier at booking if counselor allows
 6. **Full video UX** — embedded Daily room, waiting room
 7. **`GET /therapists/:id`** — cleaner book page load
 8. **org_admin** — re-enable with per-clinic scoping if client wants multi-practice
-9. **Backfill languages** for existing approved counselors with empty profiles
 
 ---
 
@@ -566,7 +625,9 @@ See **`DEPLOY.md`**. Summary:
 | Brand env | `frontend/src/lib/brand.ts` |
 | Scheduling | `backend/app/services/scheduling.py` |
 | Video | `backend/app/services/video.py` |
+| Email templates | `backend/app/services/email_templates.py` |
 | Notifications | `backend/app/services/notifications.py` |
+| i18n | `frontend/src/lib/i18n.ts` |
 | Org helpers | `backend/app/utils.py` |
 | Models | `backend/app/models.py` |
 | Admin routes | `backend/app/routes/admin.py` |
@@ -677,6 +738,36 @@ See **`DEPLOY.md`**. Summary:
 - Added `start-backend.ps1`; `start-frontend.ps1` runs in-repo (no robocopy from Drive)
 - SQLite at project root `tesfa_counseling.db`; migrated from `C:\dev\ethio-counseling`
 - `config.py` resolves DB relative to project root with legacy path fallback
+
+### 2026-07-02 / 2026-07-03 — Production hardening, video, email, custom domain
+
+**Video (Daily.co)**
+- Hardened room creation (exp fallback, retry without exp, fetch existing room on collision)
+- Backfill video rooms on `GET /appointments?upcoming=true` and single appointment GET
+- Admin daily-check, test-room, backfill-video-rooms; `test_daily.py` for Render shell
+- Health: `daily_api_key_set`
+- Join window enforced: API hides URL until open; `/appointments/:id/video-join` redirect with blocked HTML page
+- Emails: branded HTML (`email_templates.py`); video note “opens 15 min before” (no early Daily link)
+
+**Email (SendGrid)**
+- SMTP live on Render; HTML session emails (book/cancel/reschedule/feedback)
+- Admin **Send test email** in Statistics panel; health `smtp_configured`
+- SendGrid domain auth on `tesfacounseling.com` via GoDaddy DNS (`em6403` verified)
+
+**Production fixes**
+- Postgres enum fixes for feedback + schedule_change_type (admin 500, booking 500)
+- `apiBase.ts` production URL fix
+- Provider photo authenticated preview endpoint
+- CORS for `www.tesfacounseling.com` custom domain
+
+**UX / content**
+- i18n Amharic/English; homepage “Tesfa means hope.” copy shortened
+- Client feedback + admin feedback panel; schedule alerts
+- Admin stats: removed pro bono / trainee rate display
+
+**Git / deploy**
+- Repo: `TesfaCounseling/Tesfa-Counseling` branch `main`; pushes auto-deploy Render + Netlify
+- Collaborator push as `jaklilu`
 
 ---
 
