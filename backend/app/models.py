@@ -367,7 +367,8 @@ class Appointment(db.Model):
         nullable=False,
     )
     schedule_change_type: Mapped[ScheduleChangeType | None] = mapped_column(
-        Enum(ScheduleChangeType, name="schedule_change_type"), nullable=True
+        Enum(ScheduleChangeType, values_callable=lambda x: [e.value for e in x], name="schedule_change_type"),
+        nullable=True,
     )
     schedule_change_at: Mapped[datetime | None] = mapped_column(db.DateTime(timezone=True), nullable=True)
     schedule_change_by_id: Mapped[uuid.UUID | None] = mapped_column(
