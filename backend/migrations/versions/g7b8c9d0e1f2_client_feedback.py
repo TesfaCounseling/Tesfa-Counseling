@@ -7,19 +7,35 @@ Create Date: 2026-06-23
 """
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import inspect
+from sqlalchemy.dialects import postgresql
 
 revision = "g7b8c9d0e1f2"
 down_revision = "f6a7b8c9d0e1"
 branch_labels = None
 depends_on = None
 
-feedback_category = sa.Enum("feedback", "complaint", name="feedback_category")
-feedback_status = sa.Enum("open", "resolved", name="feedback_status")
-
 
 def upgrade():
+    feedback_category = postgresql.ENUM(
+        "feedback",
+        "complaint",
+        name="feedback_category",
+        create_type=False,
+    )
+    feedback_status = postgresql.ENUM(
+        "open",
+        "resolved",
+        name="feedback_status",
+        create_type=False,
+    )
     feedback_category.create(op.get_bind(), checkfirst=True)
     feedback_status.create(op.get_bind(), checkfirst=True)
+
+    bind = op.get_bind()
+    if "client_feedback" in inspect(bind).get_table_names():
+        return
+
     op.create_table(
         "client_feedback",
         sa.Column("id", sa.UUID(), nullable=False),
@@ -44,5 +60,5 @@ def downgrade():
     op.drop_index("ix_client_feedback_created_at", table_name="client_feedback")
     op.drop_index("ix_client_feedback_client_id", table_name="client_feedback")
     op.drop_table("client_feedback")
-    feedback_status.drop(op.get_bind(), checkfirst=True)
-    feedback_category.drop(op.get_bind(), checkfirst=True)
+    postgresql.ENUM(name="feedback_status").drop(op.get_bind(), checkfirst=True)
+    postgresql.ENUM(name="feedback_category").drop(op.get_bind(), checkfirst=True)
