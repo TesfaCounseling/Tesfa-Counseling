@@ -117,6 +117,7 @@ def notify_appointment_booked(appointment, client, provider) -> None:
         if not user or not user.email:
             continue
         plain, html_body = email_templates.appointment_booked_email(
+            appointment_id=appointment.id,
             recipient_name=user.first_name or user.full_name,
             provider_name=provider.full_name,
             client_name=client.full_name,
@@ -174,6 +175,7 @@ def notify_appointment_rescheduled(appointment, client, provider, rescheduled_by
         if not user or not user.email:
             continue
         plain, html_body = email_templates.appointment_rescheduled_email(
+            appointment_id=appointment.id,
             recipient_name=user.first_name or user.full_name,
             provider_name=provider.full_name,
             client_name=client.full_name,

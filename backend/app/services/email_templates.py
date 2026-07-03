@@ -9,6 +9,9 @@ from app.datetime_utils import format_in_timezone
 
 BRAND_NAME = os.environ.get("APP_NAME", "Tesfa Counseling")
 APP_URL = os.environ.get("APP_URL", "https://www.tesfacounseling.com").rstrip("/")
+API_PUBLIC_URL = os.environ.get(
+    "API_PUBLIC_URL", "https://tesfa-counseling.onrender.com/api/v1"
+).rstrip("/")
 DASHBOARD_URL = f"{APP_URL}/dashboard"
 
 GREEN = "#078930"
@@ -103,8 +106,20 @@ def _secondary_link(label: str, href: str) -> str:
     )
 
 
+def video_join_url(appointment_id: object) -> str:
+    return f"{API_PUBLIC_URL}/appointments/{appointment_id}/video-join"
+
+
+def _video_room_link_html(join_url: str) -> str:
+    return (
+        f'<a href="{_esc(join_url)}" style="color:{GREEN_DARK};font-weight:600;text-decoration:underline;">'
+        f"Video room</a>"
+    )
+
+
 def appointment_booked_email(
     *,
+    appointment_id: object,
     recipient_name: str,
     provider_name: str,
     client_name: str,
@@ -126,7 +141,8 @@ def appointment_booked_email(
         f"Duration: {duration_minutes} minutes\n"
     )
     if video_room_url:
-        plain += f"Video session: {video_room_url}\n"
+        join_url = video_join_url(appointment_id)
+        plain += f"Video room: {join_url}\n"
     plain += f"\nView your dashboard: {DASHBOARD_URL}\n"
 
     rows = (
@@ -135,10 +151,8 @@ def appointment_booked_email(
         + _detail_row("Duration", f"{duration_minutes} minutes")
     )
     if video_room_url:
-        rows += _detail_row(
-            "Video",
-            f'<a href="{_esc(video_room_url)}" style="color:{GREEN_DARK};">Join video session</a>',
-        )
+        join_url = video_join_url(appointment_id)
+        rows += _detail_row("Video room", _video_room_link_html(join_url))
 
     body = (
         f'<p style="margin:0 0 8px;color:{INK};font-size:18px;font-weight:bold;">Session confirmed</p>'
@@ -147,7 +161,7 @@ def appointment_booked_email(
         f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0">{rows}</table>'
     )
     if video_room_url:
-        body += _cta_button("Join video session", video_room_url)
+        body += _cta_button("Video room", video_join_url(appointment_id))
     body += _secondary_link("View dashboard", DASHBOARD_URL)
 
     html_out = wrap_email_html(
@@ -190,6 +204,7 @@ def appointment_cancelled_email(
 
 def appointment_rescheduled_email(
     *,
+    appointment_id: object,
     recipient_name: str,
     provider_name: str,
     client_name: str,
@@ -213,7 +228,8 @@ def appointment_rescheduled_email(
         f"Updated by: {rescheduled_by_name}\n"
     )
     if video_room_url:
-        plain += f"Video session: {video_room_url}\n"
+        join_url = video_join_url(appointment_id)
+        plain += f"Video room: {join_url}\n"
     plain += f"\nView your dashboard: {DASHBOARD_URL}\n"
 
     rows = (
@@ -222,6 +238,9 @@ def appointment_rescheduled_email(
         + _detail_row("Duration", f"{duration_minutes} minutes")
         + _detail_row("Updated by", _esc(rescheduled_by_name))
     )
+    if video_room_url:
+        rows += _detail_row("Video room", _video_room_link_html(video_join_url(appointment_id)))
+
     body = (
         f'<p style="margin:0 0 8px;color:{INK};font-size:18px;font-weight:bold;">Session rescheduled</p>'
         f'<p style="margin:0 0 24px;color:{INK_MUTED};font-size:15px;line-height:1.5;">'
@@ -229,7 +248,7 @@ def appointment_rescheduled_email(
         f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0">{rows}</table>'
     )
     if video_room_url:
-        body += _cta_button("Join video session", video_room_url)
+        body += _cta_button("Video room", video_join_url(appointment_id))
     body += _secondary_link("View dashboard", DASHBOARD_URL)
 
     return plain, wrap_email_html(title="Session rescheduled", preheader=f"New time: {when}", body_html=body)

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify, redirect, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.datetime_utils import format_in_timezone, to_iso_utc
@@ -187,6 +187,15 @@ def list_appointments():
         _backfill_video_rooms(appointments)
 
     return jsonify({"appointments": [_appointment_to_dict(a, user) for a in appointments]})
+
+
+@appointments_bp.route("/<uuid:appointment_id>/video-join", methods=["GET"])
+def join_appointment_video(appointment_id):
+    """Short link target for emails — redirects to the Daily.co room."""
+    appt = db.session.get(Appointment, appointment_id)
+    if not appt or not appt.video_room_url:
+        return jsonify({"error": "Not Found", "message": "Video room not available"}), 404
+    return redirect(appt.video_room_url, code=302)
 
 
 @appointments_bp.route("/<uuid:appointment_id>", methods=["GET"])
