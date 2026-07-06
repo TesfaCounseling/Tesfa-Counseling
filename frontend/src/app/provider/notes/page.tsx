@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
+import FeedbackPageLocationSetter from "@/components/FeedbackPageLocationSetter";
 import PageHero from "@/components/PageHero";
 import { completeAppointment, getMe, listNoteSessions, type NoteSession } from "@/lib/api";
 import { formatDateTime, formatStatusLabel } from "@/lib/format";
@@ -62,6 +63,7 @@ export default function ProviderNotesPage() {
 
   return (
     <div className="page-shell">
+      <FeedbackPageLocationSetter screen="Counselor" tab="Session notes" />
       <SiteHeader showAuth={false} />
       <PageHero
         eyebrow="Clinical documentation"

@@ -19,12 +19,14 @@ def ensure_testing_feedback_schema() -> None:
         return
 
     inspector = inspect(bind)
-    if "testing_feedback" in inspector.get_table_names():
+    tables = inspector.get_table_names()
+    if "testing_feedback" in tables:
         columns = {col["name"] for col in inspector.get_columns("testing_feedback")}
-        if "submitter_name" in columns:
+        if "submitter_name" in columns and "page_context" in columns:
             return
-
-    logger.warning("testing_feedback schema missing on Postgres — applying bootstrap SQL")
+        logger.warning("testing_feedback schema incomplete on Postgres — applying bootstrap SQL")
+    else:
+        logger.warning("testing_feedback table missing on Postgres — applying bootstrap SQL")
 
     statements = [
         """
@@ -45,6 +47,7 @@ def ensure_testing_feedback_schema() -> None:
             feedback_type testing_feedback_type NOT NULL,
             page_path VARCHAR(500) NOT NULL,
             page_title VARCHAR(200) NOT NULL DEFAULT '',
+            page_context VARCHAR(500) NOT NULL DEFAULT '',
             message TEXT NOT NULL,
             status feedback_status NOT NULL DEFAULT 'open',
             resolved_at TIMESTAMPTZ,
@@ -54,6 +57,7 @@ def ensure_testing_feedback_schema() -> None:
         )
         """,
         "ALTER TABLE testing_feedback ADD COLUMN IF NOT EXISTS submitter_name VARCHAR(120)",
+        "ALTER TABLE testing_feedback ADD COLUMN IF NOT EXISTS page_context VARCHAR(500) NOT NULL DEFAULT ''",
         "ALTER TABLE testing_feedback ALTER COLUMN user_id DROP NOT NULL",
         "CREATE INDEX IF NOT EXISTS ix_testing_feedback_user_id ON testing_feedback (user_id)",
         "CREATE INDEX IF NOT EXISTS ix_testing_feedback_created_at ON testing_feedback (created_at)",

@@ -18,7 +18,7 @@ type AdminTabNavProps = {
 
 export default function AdminTabNav({ tabs, active, onChange }: AdminTabNavProps) {
   return (
-    <div className="mb-6 flex flex-wrap gap-2 border-b border-ethio-border pb-4">
+    <div className="mb-6 flex flex-wrap gap-2 border-b border-ethio-border pb-4" data-feedback-tabs="true">
       {tabs.map((tab) => (
         <button
           key={tab.id}

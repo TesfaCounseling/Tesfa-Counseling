@@ -30,7 +30,7 @@ export default function AccountTabs({
   if (tabs.length <= 1) return null;
 
   return (
-    <div className="mb-6 flex flex-wrap gap-2 rounded-2xl bg-ethio-surface p-1.5">
+    <div className="mb-6 flex flex-wrap gap-2 rounded-2xl bg-ethio-surface p-1.5" data-feedback-tabs="true">
       {tabs.map((tab) => (
         <button
           key={tab.id}

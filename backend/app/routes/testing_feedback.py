@@ -49,6 +49,7 @@ def _feedback_to_dict(record: TestingFeedback) -> dict:
         "feedback_type": record.feedback_type.value,
         "page_path": record.page_path,
         "page_title": record.page_title,
+        "page_context": record.page_context,
         "message": record.message,
         "status": record.status.value,
         "tester_role": record.tester_role,
@@ -76,6 +77,7 @@ def submit_testing_feedback():
     type_raw = (data.get("feedback_type") or data.get("type") or "").strip().lower()
     page_path = (data.get("page_path") or "").strip()
     page_title = (data.get("page_title") or "").strip()[:200]
+    page_context = (data.get("page_context") or "").strip()[:500]
     message = (data.get("message") or "").strip()
     submitter_name = (data.get("submitter_name") or "").strip()[:120]
 
@@ -107,6 +109,7 @@ def submit_testing_feedback():
         feedback_type=feedback_type,
         page_path=page_path,
         page_title=page_title,
+        page_context=page_context,
         message=message,
     )
 

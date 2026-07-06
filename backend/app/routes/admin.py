@@ -1014,6 +1014,7 @@ def _testing_feedback_to_dict(record: TestingFeedback) -> dict:
         "feedback_type": record.feedback_type.value,
         "page_path": record.page_path,
         "page_title": record.page_title,
+        "page_context": record.page_context,
         "message": record.message,
         "status": record.status.value,
         "tester_role": record.tester_role,

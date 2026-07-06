@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { hasAuthSession, submitTestingFeedback, type TestingFeedbackType } from "@/lib/api";
+import { useFeedbackPageLocationSnapshot } from "@/lib/feedbackPageContext";
+import { captureActiveTabsFromDom, formatPageContext } from "@/lib/pageLocation";
 
 const ENABLED = process.env.NEXT_PUBLIC_BETA_FEEDBACK === "true";
 
@@ -16,8 +18,10 @@ const TYPE_OPTIONS: { value: TestingFeedbackType; label: string }[] = [
 
 export default function BetaFeedbackWidget() {
   const pathname = usePathname();
+  const locationSnapshot = useFeedbackPageLocationSnapshot();
   const [loggedIn, setLoggedIn] = useState(false);
   const [open, setOpen] = useState(false);
+  const [pageContext, setPageContext] = useState("");
   const [feedbackType, setFeedbackType] = useState<TestingFeedbackType>("change");
   const [submitterName, setSubmitterName] = useState("");
   const [message, setMessage] = useState("");
@@ -35,6 +39,12 @@ export default function BetaFeedbackWidget() {
 
   const pageTitle = typeof document !== "undefined" ? document.title.replace(/\s*·.*$/, "").trim() : "";
 
+  function openModal() {
+    const context = formatPageContext(pathname, locationSnapshot, captureActiveTabsFromDom());
+    setPageContext(context);
+    setOpen(true);
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError("");
@@ -45,6 +55,7 @@ export default function BetaFeedbackWidget() {
         feedback_type: feedbackType,
         page_path: pathname,
         page_title: pageTitle,
+        page_context: pageContext,
         message,
         submitter_name: loggedIn ? undefined : submitterName.trim(),
       });
@@ -72,7 +83,7 @@ export default function BetaFeedbackWidget() {
       >
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={openModal}
           className="pointer-events-auto flex max-w-[min(100%,18rem)] flex-col items-start gap-0.5 rounded-2xl border-2 border-ethio-gold bg-ethio-green px-5 py-3.5 text-left text-white shadow-ethio ring-4 ring-ethio-gold/30 transition hover:bg-ethio-green-dark sm:max-w-xs sm:px-6 sm:py-4"
           aria-label="Give Us Your Feedback"
         >
@@ -105,9 +116,9 @@ export default function BetaFeedbackWidget() {
             </div>
 
             <div className="mb-3 rounded-xl bg-ethio-surface-warm px-3 py-2 text-sm">
-              <p className="font-semibold text-ethio-ink">This page</p>
-              <p className="mt-0.5 break-all font-mono text-xs text-ethio-ink-muted">{pathname}</p>
-              {pageTitle && <p className="mt-1 text-xs text-ethio-ink-muted">{pageTitle}</p>}
+              <p className="font-semibold text-ethio-ink">You are on</p>
+              <p className="mt-1 text-base font-bold text-ethio-green-dark">{pageContext || pathname}</p>
+              <p className="mt-1 break-all font-mono text-xs text-ethio-ink-muted">{pathname}</p>
             </div>
 
             {!loggedIn && (

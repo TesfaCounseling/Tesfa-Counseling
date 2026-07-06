@@ -10,6 +10,8 @@ import AdminAuditLog from "@/components/admin/AdminAuditLog";
 import AdminFeedback from "@/components/admin/AdminFeedback";
 import AdminTestingFeedback from "@/components/admin/AdminTestingFeedback";
 import AdminStatisticsPanel from "@/components/admin/AdminStatisticsPanel";
+import { useFeedbackPageLocation } from "@/lib/feedbackPageContext";
+import { adminSectionLabel } from "@/lib/pageLocation";
 import { getAdminOverview, type AdminOverview, type AuthUser } from "@/lib/api";
 import { canManagePlatform, canReviewCounselors, canViewClientFeedback } from "@/lib/roles";
 
@@ -28,6 +30,16 @@ export default function AdminDashboardPanel({ user }: AdminDashboardPanelProps) 
 
   const platformAdmin = canManagePlatform(user);
   const canViewFeedback = canViewClientFeedback(user);
+
+  useFeedbackPageLocation(
+    section
+      ? {
+          screen: "Dashboard",
+          tab: platformAdmin ? "Platform admin" : "Approvals",
+          section: adminSectionLabel(section),
+        }
+      : null
+  );
 
   const loadOverview = useCallback(async () => {
     const data = await getAdminOverview();

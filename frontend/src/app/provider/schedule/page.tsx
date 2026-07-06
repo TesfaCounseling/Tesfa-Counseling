@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
+import FeedbackPageLocationSetter from "@/components/FeedbackPageLocationSetter";
 import { getBrowserTimezone } from "@/lib/format";
 import {
   createAvailabilityRule,
@@ -99,6 +100,7 @@ export default function ProviderSchedulePage() {
 
   return (
     <div className="page-shell">
+      <FeedbackPageLocationSetter screen="Counselor" tab="Manage schedule" />
       <SiteHeader showAuth={false} />
       <main className="mx-auto max-w-lg page-pad py-8">
         <Link href="/dashboard" className="text-sm font-semibold text-ethio-green-dark">

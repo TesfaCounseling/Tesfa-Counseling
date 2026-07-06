@@ -10,7 +10,7 @@ type DashboardTabsProps = {
 
 export default function DashboardTabs({ active, onChange, pendingCount = 0 }: DashboardTabsProps) {
   return (
-    <div className="flex gap-2 rounded-2xl bg-ethio-surface p-1.5">
+    <div className="flex gap-2 rounded-2xl bg-ethio-surface p-1.5" data-feedback-tabs="true">
       <button
         type="button"
         onClick={() => onChange("counseling")}

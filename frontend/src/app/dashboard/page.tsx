@@ -25,6 +25,8 @@ import {
 } from "@/lib/api";
 import { formatTranslation, isAppLanguage } from "@/lib/i18n";
 import { appointmentTimezoneLabel, formatAppointmentWhen, formatMoney } from "@/lib/format";
+import { useFeedbackPageLocation } from "@/lib/feedbackPageContext";
+import type { FeedbackPageLocation } from "@/lib/feedbackPageContext";
 import {
   canManagePlatform,
   hasAdminAccess,
@@ -160,6 +162,45 @@ export default function DashboardPage() {
     }
     return t("dashboard.subtitleClient");
   }, [platformAdmin, provider, supervisor, dualRole, t]);
+
+  const feedbackLocation = useMemo((): FeedbackPageLocation | null => {
+    if (!userLoaded) return null;
+
+    const accountTabLabels: Record<AccountTab, string> = {
+      platform: "Platform admin",
+      approvals: "Approvals",
+      counseling: "Counseling",
+      supervision: "Supervision",
+    };
+
+    if (multiArea) {
+      const tab = accountTabLabels[accountTab];
+      if (accountTab === "counseling") {
+        return { screen: "Dashboard", tab, section: "Counselor home" };
+      }
+      if (accountTab === "supervision") {
+        return { screen: "Dashboard", tab, section: "Supervisees" };
+      }
+      return { screen: "Dashboard", tab };
+    }
+
+    if (dualRole) {
+      const tab = providerTab === "counseling" ? "Counseling" : "Supervision";
+      const section = providerTab === "counseling" ? "Counselor home" : "Supervisees";
+      return { screen: "Dashboard", tab, section };
+    }
+
+    if (provider) {
+      return { screen: "Dashboard", tab: "Counseling", section: "Counselor home" };
+    }
+    if (supervisor) {
+      return { screen: "Dashboard", tab: "Supervision", section: "Supervisees" };
+    }
+
+    return { screen: "Dashboard", tab: "Client", section: "Upcoming sessions" };
+  }, [userLoaded, multiArea, accountTab, dualRole, providerTab, provider, supervisor]);
+
+  useFeedbackPageLocation(feedbackLocation);
 
   async function handleCancel(id: string) {
     try {

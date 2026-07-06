@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
+import FeedbackPageLocationSetter from "@/components/FeedbackPageLocationSetter";
 import { SoapNoteFields } from "@/components/SoapNoteFields";
 import {
   createClinicalNote,
@@ -117,6 +118,7 @@ export default function ClinicalNoteEditorPage() {
 
   return (
     <div className="page-shell">
+      <FeedbackPageLocationSetter screen="Counselor" tab="SOAP note" section="Edit note" />
       <SiteHeader showAuth={false} />
       <main className="mx-auto max-w-3xl page-pad pb-12 pt-8">
         <Link href="/provider/notes" className="text-sm font-semibold text-ethio-green-dark">

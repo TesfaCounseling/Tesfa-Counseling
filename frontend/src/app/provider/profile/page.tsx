@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import SiteHeader from "@/components/SiteHeader";
+import FeedbackPageLocationSetter from "@/components/FeedbackPageLocationSetter";
 import PageHero from "@/components/PageHero";
 import { ProviderAvatar } from "@/components/ProviderCard";
 import {
@@ -156,6 +157,7 @@ export default function ProviderProfilePage() {
 
   return (
     <div className="page-shell">
+      <FeedbackPageLocationSetter screen="Counselor" tab="Edit profile" />
       <SiteHeader showAuth={false} />
       <PageHero
         eyebrow="Your practice"

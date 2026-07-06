@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
+import FeedbackPageLocationSetter from "@/components/FeedbackPageLocationSetter";
 import PageHero from "@/components/PageHero";
 import { listProviderIntakes, type TraineeIntakeRecord } from "@/lib/api";
 import { formatDateTime, formatStatusLabel } from "@/lib/format";
@@ -28,6 +29,7 @@ export default function ProviderIntakesPage() {
 
   return (
     <div className="page-shell">
+      <FeedbackPageLocationSetter screen="Counselor" tab="Client intakes" />
       <SiteHeader showAuth={false} />
       <PageHero
         eyebrow="Client intake"

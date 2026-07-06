@@ -340,6 +340,7 @@ export interface AdminTestingFeedback {
   feedback_type: TestingFeedbackType;
   page_path: string;
   page_title: string;
+  page_context: string;
   message: string;
   status: "open" | "resolved";
   tester_role: string;
@@ -867,6 +868,7 @@ export function submitTestingFeedback(payload: {
   feedback_type: TestingFeedbackType;
   page_path: string;
   page_title?: string;
+  page_context?: string;
   message: string;
   submitter_name?: string;
 }) {

@@ -267,6 +267,7 @@ def notify_testing_feedback(feedback, user: User | None) -> None:
         f"Testing feedback ({type_label})\n"
         f"From: {who}\n"
         f"Page: {feedback.page_path}\n"
+        f"Where: {feedback.page_context or feedback.page_title}\n"
         f"{feedback.page_title}\n\n"
         f"{feedback.message}"
     )

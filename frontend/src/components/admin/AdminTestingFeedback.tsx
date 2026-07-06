@@ -140,8 +140,15 @@ export default function AdminTestingFeedback({ onUpdated }: Props) {
               <div key={item.id} className="card-vibrant p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="break-all font-mono text-sm font-semibold text-ethio-ink">{item.page_path}</p>
-                    {item.page_title && <p className="mt-1 text-sm text-ethio-ink-muted">{item.page_title}</p>}
+                    <p className="text-base font-bold text-ethio-green-dark">
+                      {item.page_context || item.page_title || item.page_path}
+                    </p>
+                    {item.page_context && (
+                      <p className="mt-0.5 break-all font-mono text-xs text-ethio-ink-muted">{item.page_path}</p>
+                    )}
+                    {!item.page_context && item.page_path && (
+                      <p className="mt-0.5 break-all font-mono text-xs text-ethio-ink-muted">{item.page_path}</p>
+                    )}
                     <p className="mt-1 text-xs text-ethio-ink-muted">
                       {TYPE_LABELS[item.feedback_type]} · {formatDateTime(item.created_at)} ·{" "}
                       {item.user_name || "Tester"}

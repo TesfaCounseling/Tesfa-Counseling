@@ -542,6 +542,7 @@ class TestingFeedback(db.Model):
     )
     page_path: Mapped[str] = mapped_column(db.String(500), nullable=False)
     page_title: Mapped[str] = mapped_column(db.String(200), nullable=False, default="")
+    page_context: Mapped[str] = mapped_column(db.String(500), nullable=False, default="")
     message: Mapped[str] = mapped_column(db.Text, nullable=False)
     status: Mapped[FeedbackStatus] = mapped_column(
         Enum(FeedbackStatus, values_callable=lambda x: [e.value for e in x], name="feedback_status"),
