@@ -18,6 +18,7 @@ from app.models import (
     OrganizationMember,
     PricingType,
     SessionPricing,
+    TestingFeedback,
     TherapistProfile,
     TraineeProfile,
     User,
@@ -672,6 +673,8 @@ def admin_overview(current_user):
         current_user, UserRole.SUPERVISOR
     ):
         payload["open_client_feedback"] = ClientFeedback.query.filter_by(status=FeedbackStatus.OPEN).count()
+    if user_has_role(current_user, UserRole.PLATFORM_ADMIN):
+        payload["open_testing_feedback"] = TestingFeedback.query.filter_by(status=FeedbackStatus.OPEN).count()
     return jsonify(payload)
 
 
@@ -1001,6 +1004,91 @@ def update_client_feedback(feedback_id, current_user):
     )
     db.session.commit()
     return jsonify({"feedback": _client_feedback_to_dict(record)})
+
+
+def _testing_feedback_to_dict(record: TestingFeedback) -> dict:
+    tester = record.user
+    resolver = record.resolved_by
+    return {
+        "id": str(record.id),
+        "feedback_type": record.feedback_type.value,
+        "page_path": record.page_path,
+        "page_title": record.page_title,
+        "message": record.message,
+        "status": record.status.value,
+        "tester_role": record.tester_role,
+        "user_id": str(record.user_id) if record.user_id else None,
+        "user_name": tester.full_name if tester else record.submitter_name,
+        "user_email": tester.email if tester else None,
+        "resolved_at": record.resolved_at.isoformat() if record.resolved_at else None,
+        "resolved_by_name": resolver.full_name if resolver else None,
+        "created_at": record.created_at.isoformat(),
+    }
+
+
+@admin_bp.route("/testing-feedback", methods=["GET"])
+@require_roles(UserRole.PLATFORM_ADMIN)
+def list_testing_feedback(current_user):
+    limit = min(max(int(request.args.get("limit", 50)), 1), 100)
+    offset = max(int(request.args.get("offset", 0)), 0)
+    status_filter = (request.args.get("status") or "open").strip().lower()
+    page_filter = (request.args.get("page_path") or "").strip()
+
+    query = TestingFeedback.query.order_by(TestingFeedback.created_at.desc())
+    if status_filter != "all":
+        try:
+            query = query.filter_by(status=FeedbackStatus(status_filter))
+        except ValueError:
+            return jsonify({"error": "ValidationError", "message": "Invalid status filter"}), 400
+    if page_filter:
+        query = query.filter(TestingFeedback.page_path.ilike(f"%{page_filter}%"))
+
+    total = query.count()
+    open_count = TestingFeedback.query.filter_by(status=FeedbackStatus.OPEN).count()
+    records = query.offset(offset).limit(limit).all()
+
+    return jsonify(
+        {
+            "feedback": [_testing_feedback_to_dict(record) for record in records],
+            "total": total,
+            "open_count": open_count,
+            "limit": limit,
+            "offset": offset,
+        }
+    )
+
+
+@admin_bp.route("/testing-feedback/<uuid:feedback_id>", methods=["PATCH"])
+@require_roles(UserRole.PLATFORM_ADMIN)
+def update_testing_feedback(feedback_id, current_user):
+    record = db.session.get(TestingFeedback, feedback_id)
+    if not record:
+        return jsonify({"error": "Not Found"}), 404
+
+    data = request.get_json(silent=True) or {}
+    if "status" in data:
+        try:
+            status = FeedbackStatus(data["status"])
+        except ValueError:
+            return jsonify({"error": "ValidationError", "message": "Invalid status"}), 400
+
+        record.status = status
+        if status == FeedbackStatus.RESOLVED:
+            record.resolved_at = utcnow()
+            record.resolved_by_id = current_user.id
+        else:
+            record.resolved_at = None
+            record.resolved_by_id = None
+
+    log_audit(
+        "testing_feedback.updated",
+        "testing_feedback",
+        str(record.id),
+        f"status={record.status.value}",
+        actor_id=current_user.id,
+    )
+    db.session.commit()
+    return jsonify({"feedback": _testing_feedback_to_dict(record)})
 
 
 @admin_bp.route("/organizations", methods=["GET"])

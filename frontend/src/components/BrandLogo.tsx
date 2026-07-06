@@ -11,8 +11,8 @@ export default function BrandLogo({ className = "", showSubtitle = false }: Bran
 
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
-      <div className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-ethio-gradient shadow-ethio sm:h-10 sm:w-10">
-        <span className="text-base font-bold text-white sm:text-lg" aria-hidden>
+      <div className="relative flex h-10 w-11 shrink-0 items-center justify-center rounded-xl bg-ethio-gradient px-0.5 shadow-ethio sm:h-10 sm:w-11">
+        <span className="text-[10px] font-bold leading-none text-white sm:text-[11px]" lang="am" aria-hidden>
           {TESFA_GEEZ}
         </span>
         <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-ethio-cream bg-ethio-gold" />

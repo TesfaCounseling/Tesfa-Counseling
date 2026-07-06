@@ -83,6 +83,11 @@ class Config:
     TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
     DAILY_API_KEY = os.environ.get("DAILY_API_KEY", "")
     STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+    BETA_FEEDBACK_ENABLED = os.environ.get("BETA_FEEDBACK_ENABLED", "").strip().lower() in (
+        "1",
+        "true",
+        "yes",
+    )
 
 
 class DevelopmentConfig(Config):

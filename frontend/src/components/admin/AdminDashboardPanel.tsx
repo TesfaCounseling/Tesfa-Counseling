@@ -8,6 +8,7 @@ import AdminProviders from "@/components/admin/AdminProviders";
 import AdminUsers from "@/components/admin/AdminUsers";
 import AdminAuditLog from "@/components/admin/AdminAuditLog";
 import AdminFeedback from "@/components/admin/AdminFeedback";
+import AdminTestingFeedback from "@/components/admin/AdminTestingFeedback";
 import AdminStatisticsPanel from "@/components/admin/AdminStatisticsPanel";
 import { getAdminOverview, type AdminOverview, type AuthUser } from "@/lib/api";
 import { canManagePlatform, canReviewCounselors, canViewClientFeedback } from "@/lib/roles";
@@ -21,6 +22,7 @@ export default function AdminDashboardPanel({ user }: AdminDashboardPanelProps) 
   const [overview, setOverview] = useState<AdminOverview | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
   const [openFeedbackCount, setOpenFeedbackCount] = useState(0);
+  const [openTestingFeedbackCount, setOpenTestingFeedbackCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -32,6 +34,7 @@ export default function AdminDashboardPanel({ user }: AdminDashboardPanelProps) 
     setOverview(data);
     setPendingCount(data.pending_counselors);
     setOpenFeedbackCount(data.open_client_feedback ?? 0);
+    setOpenTestingFeedbackCount(data.open_testing_feedback ?? 0);
   }, []);
 
   useEffect(() => {
@@ -50,6 +53,11 @@ export default function AdminDashboardPanel({ user }: AdminDashboardPanelProps) 
     }
     if (platformAdmin) {
       items.push(
+        {
+          id: "testing",
+          label: "Testing",
+          badge: openTestingFeedbackCount,
+        },
         { id: "statistics", label: "Statistics" },
         { id: "providers", label: "Providers" },
         { id: "users", label: "Users" },
@@ -57,7 +65,7 @@ export default function AdminDashboardPanel({ user }: AdminDashboardPanelProps) 
       );
     }
     return items;
-  }, [platformAdmin, canViewFeedback, pendingCount, openFeedbackCount]);
+  }, [platformAdmin, canViewFeedback, pendingCount, openFeedbackCount, openTestingFeedbackCount]);
 
   if (loading) {
     return <p className="text-sm text-ethio-ink-muted">Loading platform overview…</p>;
@@ -96,6 +104,9 @@ export default function AdminDashboardPanel({ user }: AdminDashboardPanelProps) 
       {section === "users" && platformAdmin && <AdminUsers />}
       {section === "feedback" && canViewFeedback && (
         <AdminFeedback onUpdated={() => loadOverview().catch(() => {})} />
+      )}
+      {section === "testing" && platformAdmin && (
+        <AdminTestingFeedback onUpdated={() => loadOverview().catch(() => {})} />
       )}
       {section === "audit" && platformAdmin && <AdminAuditLog />}
     </div>

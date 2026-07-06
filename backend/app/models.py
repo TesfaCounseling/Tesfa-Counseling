@@ -518,3 +518,45 @@ class ClientFeedback(db.Model):
     client = relationship("User", foreign_keys=[client_id])
     resolved_by = relationship("User", foreign_keys=[resolved_by_id])
 
+
+class TestingFeedbackType(str, enum.Enum):
+    CHANGE = "change"
+    BUG = "bug"
+    ADD_FEATURE = "add_feature"
+    CONFUSING = "confusing"
+    OTHER = "other"
+
+
+class TestingFeedback(db.Model):
+    __tablename__ = "testing_feedback"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), db.ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    submitter_name: Mapped[str | None] = mapped_column(db.String(120), nullable=True)
+    tester_role: Mapped[str] = mapped_column(db.String(80), nullable=False)
+    feedback_type: Mapped[TestingFeedbackType] = mapped_column(
+        Enum(TestingFeedbackType, values_callable=lambda x: [e.value for e in x], name="testing_feedback_type"),
+        nullable=False,
+    )
+    page_path: Mapped[str] = mapped_column(db.String(500), nullable=False)
+    page_title: Mapped[str] = mapped_column(db.String(200), nullable=False, default="")
+    message: Mapped[str] = mapped_column(db.Text, nullable=False)
+    status: Mapped[FeedbackStatus] = mapped_column(
+        Enum(FeedbackStatus, values_callable=lambda x: [e.value for e in x], name="feedback_status"),
+        default=FeedbackStatus.OPEN,
+        nullable=False,
+    )
+    resolved_at: Mapped[datetime | None] = mapped_column(db.DateTime(timezone=True), nullable=True)
+    resolved_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), db.ForeignKey("users.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(db.DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        db.DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+    )
+
+    user = relationship("User", foreign_keys=[user_id])
+    resolved_by = relationship("User", foreign_keys=[resolved_by_id])
+

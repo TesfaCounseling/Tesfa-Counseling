@@ -121,11 +121,17 @@
   }
 
   .brand-text {
-    background-image: var(--ethio-gradient);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    color: var(--ethio-green-dark);
     @apply font-bold;
+  }
+
+  @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+    .brand-text {
+      background-image: var(--ethio-gradient);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
   }
 
   .card {

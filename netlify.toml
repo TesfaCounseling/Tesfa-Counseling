@@ -6,6 +6,7 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  NEXT_PUBLIC_BETA_FEEDBACK = "true"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

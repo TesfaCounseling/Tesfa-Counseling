@@ -244,3 +244,39 @@ def notify_client_feedback_backup(feedback, client) -> None:
     )
     _notify_users_email(staff, f"Client {category_label}: {feedback.subject}", plain, html_body)
     _notify_users_telegram(staff, f"📩 {category_label} from {client.full_name}\n{feedback.subject}")
+
+
+def notify_testing_feedback(feedback, user: User | None) -> None:
+    """Email/Telegram to platform admins during the testing phase."""
+    type_labels = {
+        "change": "Change request",
+        "bug": "Bug",
+        "add_feature": "Add feature",
+        "confusing": "Confusing",
+        "other": "Other",
+    }
+    type_label = type_labels.get(feedback.feedback_type.value, feedback.feedback_type.value)
+    staff = get_platform_admin_users()
+    if user:
+        who = f"{user.full_name} ({user.email}) · role: {feedback.tester_role}"
+        who_short = user.full_name
+    else:
+        who = f"{feedback.submitter_name or 'Guest'} · role: guest"
+        who_short = feedback.submitter_name or "Guest"
+    plain = (
+        f"Testing feedback ({type_label})\n"
+        f"From: {who}\n"
+        f"Page: {feedback.page_path}\n"
+        f"{feedback.page_title}\n\n"
+        f"{feedback.message}"
+    )
+    _notify_users_email(
+        staff,
+        f"Testing feedback: {feedback.page_path}",
+        plain,
+        plain.replace("\n", "<br>"),
+    )
+    _notify_users_telegram(
+        staff,
+        f"🧪 Testing · {type_label}\n{who_short} · {feedback.page_path}\n{feedback.message[:200]}",
+    )

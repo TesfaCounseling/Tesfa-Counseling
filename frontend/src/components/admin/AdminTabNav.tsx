@@ -5,6 +5,7 @@ export type AdminSection =
   | "providers"
   | "users"
   | "feedback"
+  | "testing"
   | "audit";
 
 type Tab = { id: AdminSection; label: string; badge?: number };

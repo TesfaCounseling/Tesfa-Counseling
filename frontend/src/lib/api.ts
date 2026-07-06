@@ -104,6 +104,10 @@ export interface AvailabilityRule {
   timezone: string;
 }
 
+export function hasAuthSession(): boolean {
+  return Boolean(getToken());
+}
+
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem("access_token");
@@ -325,10 +329,29 @@ export interface AdminOverview {
   organizations: number;
   audit_events_24h: number;
   open_client_feedback?: number;
+  open_testing_feedback?: number;
+}
+
+export type TestingFeedbackType = "change" | "bug" | "add_feature" | "confusing" | "other";
+export type FeedbackStatusFilter = "open" | "resolved" | "all";
+
+export interface AdminTestingFeedback {
+  id: string;
+  feedback_type: TestingFeedbackType;
+  page_path: string;
+  page_title: string;
+  message: string;
+  status: "open" | "resolved";
+  tester_role: string;
+  user_id: string | null;
+  user_name?: string | null;
+  user_email?: string | null;
+  resolved_at?: string | null;
+  resolved_by_name?: string | null;
+  created_at: string;
 }
 
 export type FeedbackCategory = "feedback" | "complaint";
-export type FeedbackStatusFilter = "open" | "resolved" | "all";
 
 export interface AdminClientFeedback {
   id: string;
@@ -835,6 +858,47 @@ export function listAdminFeedback(params?: { status?: FeedbackStatusFilter; limi
 export function updateAdminFeedback(id: string, payload: { status: "open" | "resolved" }) {
   return apiFetch<{ feedback: AdminClientFeedback }>(
     `/admin/feedback/${id}`,
+    { method: "PATCH", body: JSON.stringify(payload) },
+    true
+  );
+}
+
+export function submitTestingFeedback(payload: {
+  feedback_type: TestingFeedbackType;
+  page_path: string;
+  page_title?: string;
+  message: string;
+  submitter_name?: string;
+}) {
+  return apiFetch<{ feedback: { id: string; status: string } }>(
+    "/testing-feedback",
+    { method: "POST", body: JSON.stringify(payload) },
+    true
+  );
+}
+
+export function listAdminTestingFeedback(params?: {
+  status?: FeedbackStatusFilter;
+  page_path?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  const search = new URLSearchParams();
+  if (params?.status) search.set("status", params.status);
+  if (params?.page_path) search.set("page_path", params.page_path);
+  if (params?.limit) search.set("limit", String(params.limit));
+  if (params?.offset) search.set("offset", String(params.offset));
+  const q = search.toString();
+  return apiFetch<{ feedback: AdminTestingFeedback[]; total: number; open_count: number }>(
+    `/admin/testing-feedback${q ? `?${q}` : ""}`,
+    {},
+    true
+  );
+}
+
+export function updateAdminTestingFeedback(id: string, payload: { status: "open" | "resolved" }) {
+  return apiFetch<{ feedback: AdminTestingFeedback }>(
+    `/admin/testing-feedback/${id}`,
     { method: "PATCH", body: JSON.stringify(payload) },
     true
   );
