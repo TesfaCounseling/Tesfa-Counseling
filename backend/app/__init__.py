@@ -56,4 +56,9 @@ def create_app(config_name: str | None = None) -> Flask:
 
     app.cli.add_command(send_reminders_command)
 
+    with app.app_context():
+        from app.db_bootstrap import ensure_testing_feedback_schema
+
+        ensure_testing_feedback_schema()
+
     return app

@@ -12,7 +12,7 @@ services:
 
     preDeployCommand: flask db upgrade
 
-    startCommand: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
+    startCommand: flask db upgrade && gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --timeout 120
 
     healthCheckPath: /api/v1/health
 
