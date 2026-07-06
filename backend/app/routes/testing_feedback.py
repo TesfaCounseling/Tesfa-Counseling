@@ -1,10 +1,10 @@
 import logging
-import os
 import uuid
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
+from app.config import beta_feedback_enabled
 from app.extensions import db
 from app.models import FeedbackStatus, TestingFeedback, TestingFeedbackType, User, UserRole
 from app.services.notifications import notify_testing_feedback
@@ -18,7 +18,7 @@ VALID_TYPES = set(TestingFeedbackType)
 
 
 def _beta_feedback_enabled() -> bool:
-    return os.environ.get("BETA_FEEDBACK_ENABLED", "").strip().lower() in ("1", "true", "yes")
+    return beta_feedback_enabled()
 
 
 def _get_user(user_id: str | None) -> User | None:
@@ -64,7 +64,7 @@ def testing_feedback_enabled():
 @jwt_required(optional=True)
 def submit_testing_feedback():
     if not _beta_feedback_enabled():
-        return jsonify({"error": "Not Found", "message": "Testing feedback is not enabled"}), 404
+        return jsonify({"error": "Not Found", "message": "Feedback is not available right now"}), 404
 
     identity = get_jwt_identity()
     user = _get_user(identity)

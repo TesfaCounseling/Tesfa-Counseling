@@ -62,6 +62,17 @@ def _engine_options(database_url: str) -> dict:
     }
 
 
+def beta_feedback_enabled() -> bool:
+    """On by default during UAT; set BETA_FEEDBACK_ENABLED=false to disable."""
+    raw = os.environ.get("BETA_FEEDBACK_ENABLED")
+    if raw is None or not raw.strip():
+        return True
+    value = raw.strip().lower()
+    if value in ("0", "false", "no"):
+        return False
+    return value in ("1", "true", "yes")
+
+
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY", "dev-secret-change-me")
     JWT_SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "dev-jwt-secret-change-me")
@@ -83,11 +94,7 @@ class Config:
     TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")
     DAILY_API_KEY = os.environ.get("DAILY_API_KEY", "")
     STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
-    BETA_FEEDBACK_ENABLED = os.environ.get("BETA_FEEDBACK_ENABLED", "").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-    )
+    BETA_FEEDBACK_ENABLED = beta_feedback_enabled()
 
 
 class DevelopmentConfig(Config):
