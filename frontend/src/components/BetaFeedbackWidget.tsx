@@ -74,9 +74,9 @@ export default function BetaFeedbackWidget() {
           type="button"
           onClick={() => setOpen(true)}
           className="pointer-events-auto flex max-w-[min(100%,18rem)] flex-col items-start gap-0.5 rounded-2xl border-2 border-ethio-gold bg-ethio-green px-5 py-3.5 text-left text-white shadow-ethio ring-4 ring-ethio-gold/30 transition hover:bg-ethio-green-dark sm:max-w-xs sm:px-6 sm:py-4"
-          aria-label="Testing feedback"
+          aria-label="Give Us Your Feedback"
         >
-          <span className="text-base font-extrabold leading-tight sm:text-lg">Testing feedback</span>
+          <span className="text-base font-extrabold leading-tight sm:text-lg">Give Us Your Feedback</span>
           <span className="text-xs font-medium text-white/90 sm:text-sm">Tap here — tell us what to change</span>
         </button>
       </div>
@@ -96,7 +96,7 @@ export default function BetaFeedbackWidget() {
           >
             <div className="mb-4">
               <h2 id="beta-feedback-title" className="text-xl font-bold text-ethio-ink sm:text-2xl">
-                Testing feedback
+                Give Us Your Feedback
               </h2>
               <p className="mt-1 text-sm text-ethio-ink-muted">
                 Tell us what to change or add on this page. Paste text if that&apos;s easier.
