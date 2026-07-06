@@ -5,7 +5,7 @@ from flask import jsonify
 from flask_jwt_extended import get_jwt_identity
 from werkzeug.exceptions import HTTPException
 
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import IntegrityError, OperationalError, SQLAlchemyError
 
 from app.extensions import db
 from app.models import Organization, OrganizationMember, User, UserRole
@@ -115,6 +115,25 @@ def register_error_handlers(app):
     @app.errorhandler(HTTPException)
     def handle_http_exception(error: HTTPException):
         return jsonify({"error": error.name, "message": error.description}), error.code
+
+    @app.errorhandler(IntegrityError)
+    def handle_integrity_error(error: IntegrityError):
+        db.session.rollback()
+        app.logger.exception("Integrity error: %s", error)
+        return jsonify(
+            {
+                "error": "Internal Server Error",
+                "message": "Could not save feedback. The server database may need an update — please try again shortly.",
+            }
+        ), 500
+
+    @app.errorhandler(SQLAlchemyError)
+    def handle_sqlalchemy_error(error: SQLAlchemyError):
+        if isinstance(error, (OperationalError, IntegrityError)):
+            raise error
+        db.session.rollback()
+        app.logger.exception("Database error: %s", error)
+        return jsonify({"error": "Internal Server Error", "message": "An unexpected error occurred"}), 500
 
     @app.errorhandler(OperationalError)
     def handle_database_error(error: OperationalError):
