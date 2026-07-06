@@ -3,6 +3,7 @@ import uuid
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import beta_feedback_enabled
 from app.extensions import db
@@ -108,21 +109,32 @@ def submit_testing_feedback():
         page_title=page_title,
         message=message,
     )
-    db.session.add(record)
-    db.session.flush()
 
-    log_audit(
-        "testing_feedback.submitted",
-        "testing_feedback",
-        str(record.id),
-        f"type={feedback_type.value}; page={page_path[:120]}",
-        actor_id=user.id if user else None,
-    )
-    db.session.commit()
+    try:
+        db.session.add(record)
+        db.session.flush()
+
+        log_audit(
+            "testing_feedback.submitted",
+            "testing_feedback",
+            str(record.id),
+            f"type={feedback_type.value}; page={page_path[:120]}",
+            actor_id=user.id if user else None,
+        )
+        db.session.commit()
+    except SQLAlchemyError as exc:
+        db.session.rollback()
+        logger.exception("Failed to save testing feedback: %s", exc)
+        return jsonify(
+            {
+                "error": "Internal Server Error",
+                "message": "Could not save feedback right now. Please try again in a minute.",
+            }
+        ), 500
 
     try:
         notify_testing_feedback(record, user)
-    except OSError as exc:
+    except Exception as exc:
         logger.warning("Testing feedback notification failed: %s", exc)
 
     return jsonify({"feedback": _feedback_to_dict(record)}), 201
