@@ -83,7 +83,7 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
       </div>
 
       <div
-        className="mt-6 flex flex-col gap-3 border-t pt-5 sm:flex-row sm:items-center sm:justify-between"
+        className="mt-6 flex flex-col items-center gap-3 border-t pt-5 text-center"
         style={{ borderColor: "rgba(4, 107, 210, 0.1)" }}
       >
         <p className="text-sm text-ethio-ink-muted">

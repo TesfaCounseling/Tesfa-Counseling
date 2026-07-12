@@ -69,3 +69,28 @@ def ensure_testing_feedback_schema() -> None:
             conn.execute(text(statement))
 
     logger.info("testing_feedback schema bootstrap complete")
+
+
+def normalize_sqlite_schedule_change_types() -> None:
+    """SQLite may store enum member names (BOOKED) while the model expects values (booked)."""
+    bind = db.engine
+    if bind.dialect.name != "sqlite":
+        return
+    inspector = inspect(bind)
+    if "appointments" not in inspector.get_table_names():
+        return
+    columns = {col["name"] for col in inspector.get_columns("appointments")}
+    if "schedule_change_type" not in columns:
+        return
+    with bind.begin() as conn:
+        result = conn.execute(
+            text(
+                """
+                UPDATE appointments
+                SET schedule_change_type = lower(schedule_change_type)
+                WHERE schedule_change_type IN ('BOOKED', 'RESCHEDULED')
+                """
+            )
+        )
+        if result.rowcount:
+            logger.info("Normalized %s appointment schedule_change_type value(s)", result.rowcount)

@@ -3,6 +3,7 @@ import type { FeedbackPageLocation } from "./feedbackPageContext";
 const PATH_SCREEN_LABELS: Record<string, string> = {
   "/": "Homepage",
   "/dashboard": "Dashboard",
+  "/schedule": "Client — Schedule a session",
   "/login": "Log in",
   "/register": "Register",
   "/register/client": "Register — Client",

@@ -2,7 +2,7 @@
 
 > Living handoff doc. Update this file as work progresses so the next agent can continue without re-discovering decisions.
 >
-> **Last updated:** 2026-07-03 — production deploy live; Daily.co video, SendGrid email, i18n, custom domain CORS
+> **Last updated:** 2026-07-12 — client Schedule a session page; homepage/copy polish; Amharic counselor wording
 
 ---
 
@@ -18,7 +18,7 @@
 
 | Layer | Tech | Deploy target |
 |-------|------|---------------|
-| Frontend | Next.js 15, TypeScript, Tailwind | Netlify — `https://tesfa-counseling.netlify.app` + `https://www.tesfacounseling.com` |
+| Frontend | Next.js 15, TypeScript, Tailwind | Netlify — **`https://www.tesfacounseling.com`** (primary) + `https://tesfa-counseling.netlify.app` |
 | API | Flask, JWT, SQLAlchemy, Alembic | Render — `https://tesfa-counseling.onrender.com` |
 | DB | SQLite (dev) / Postgres (prod) | Netlify Database → `DATABASE_URL` on Render |
 | Video | Daily.co | `DAILY_API_KEY` on Render (required for join URLs) |
@@ -110,7 +110,7 @@ Users only browse **:3000**. The frontend calls **:5050** via `NEXT_PUBLIC_API_U
 - [ ] Optional intake for licensed counselors — **not built** (pending client decision)
 
 ### E2E UX fixes (2026-06-17)
-- [x] **Client dashboard** — single “Find a counselor” card (removed duplicate from empty-sessions state)
+- [x] **Client dashboard** — Find a counselor + My schedule cards; upcoming sessions; feedback
 - [x] **Admin approvals** — expandable **View application** (org, languages, bio, license, program, etc.) in `AdminApprovals.tsx`
 - [x] **Trainee dashboard** — shows assigned **supervisor** name/email via `getMyProviderProfile()` (`providers.py`)
 - [x] **Supervision dashboard** — link to **Client intake forms**; cosign queue “All caught up” = no pending **notes**, not intakes
@@ -164,6 +164,8 @@ Role-based tabs via `AdminDashboardPanel`:
 - **Users** — search, enable/disable, grant/revoke supervisor/platform_admin (`platform_admin` only)
 - **Activity** — audit log (`platform_admin` only)
 - **Organizations** — view/edit practice orgs (`platform_admin` only)
+- **Feedback** — client complaints (`platform_admin` + `supervisor`)
+- **Testing** — UAT page feedback inbox (`platform_admin` only; open-count badge)
 - [x] **Statistics** — platform stats (`platform_admin` only); **Video (Daily.co)** + **Send test email** diagnostics
 
 **Access:**
@@ -172,7 +174,7 @@ Role-based tabs via `AdminDashboardPanel`:
 | `platform_admin` | Full admin tabs on `/dashboard` (default after login) |
 | `supervisor` | Approvals tab (trainees) + Supervision tab; `/admin` → `/dashboard` |
 | `therapist` / `trainee` | Counseling provider tools on dashboard |
-| `client` | Sessions, find counselor, book/reschedule |
+| `client` | Find counselor + **My schedule** → `/schedule`; upcoming sessions; feedback |
 
 **Admin login:** `admin@tesfacounseling.local` / `admin-change-me` (new seeds). **Migrated local DB** may still have `admin@counselconnect.local` — use that until re-seeded.
 
@@ -208,7 +210,39 @@ Role-based tabs via `AdminDashboardPanel`:
 - [x] Admin feedback panel for platform owner
 - [x] Schedule change alerts (client + provider) after reschedule — migration `h8c9d0e1f2a3`
 
-### Provider photos
+### Client scheduling (`/schedule`)
+- [x] Client dashboard **My schedule** card → `/schedule` (booking-first, not a past-sessions dump)
+- [x] **Returning clients** — counselors inferred from appointment history (no formal assigned-counselor field); **Schedule a session** → `/counselors/:id/book`
+- [x] **New clients** — primary CTA is Find a counselor
+- [x] Upcoming sessions (join / reschedule / cancel); past sessions behind a toggle
+- [x] Shared `ClientSessionsList.tsx`; SQLite bootstrap normalizes `schedule_change_type` `BOOKED`→`booked` on startup
+
+### Testing-phase feedback (UAT — separate from client feedback)
+- [x] `TestingFeedback` model + migrations (`i9` → `m0`; guest `submitter_name`, nullable `user_id`)
+- [x] **Give Us Your Feedback** floating widget on all pages (`BetaFeedbackWidget.tsx`) — gated by `NEXT_PUBLIC_BETA_FEEDBACK=true`
+- [x] **Guests** can submit (name required); **logged-in** users submit without extra fields
+- [x] Captures **`page_path`**, **`page_title`**, **`page_context`** (human-readable tab/section, e.g. `Dashboard › Counseling › Counselor home`)
+- [x] `FeedbackPageProvider` + `useFeedbackPageLocation` — dashboard tabs, admin sections, provider pages wired
+- [x] DOM fallback reads active tab buttons (`data-feedback-tabs`) when context not set
+- [x] API: `POST /api/v1/testing-feedback` (optional JWT), `GET/PATCH /admin/testing-feedback` (platform_admin only)
+- [x] Admin **Testing** tab (`AdminTestingFeedback.tsx`) — filter by page, mark done/reopen; shows `page_context` as primary label
+- [x] Email/Telegram backup to platform admins on submit
+- [x] **`BETA_FEEDBACK_ENABLED`** — on by default when unset; set `false` to disable after UAT
+- [x] Postgres bootstrap on API startup (`db_bootstrap.py`) if `testing_feedback` table/columns missing
+- [x] Health flags: `beta_feedback_enabled`, `testing_feedback_db_ready`
+- [x] `render.yaml`: `BETA_FEEDBACK_ENABLED=true`; `startCommand` runs `flask db upgrade` before gunicorn
+- [x] `netlify.toml`: `NEXT_PUBLIC_BETA_FEEDBACK=true`
+
+**Do not confuse with client feedback:**
+
+| | **Client feedback** | **Testing feedback (UAT)** |
+|---|---|---|
+| Purpose | Ongoing client complaints | Testing-phase change requests |
+| UI | Dashboard form (`ClientFeedbackForm.tsx`) | Floating **Give Us Your Feedback** widget (top-right) |
+| Admin tab | Feedback (`platform_admin` + `supervisor`) | Testing (`platform_admin` only) |
+| Table | `client_feedback` | `testing_feedback` |
+
+**After UAT:** set `BETA_FEEDBACK_ENABLED=false` on Render and `NEXT_PUBLIC_BETA_FEEDBACK=false` on Netlify, then redeploy/restart.
 - [x] Provider photo upload + `GET /providers/me/photo` for authenticated preview
 - [x] Counselor listing fixes
 
@@ -237,8 +271,7 @@ Role-based tabs via `AdminDashboardPanel`:
 | — | `GET /therapists/:id` | Book page still loads full list |
 | — | Optional intake for licensed counselors | Pending client decision |
 | — | Provider profile edit for existing counselors with blank languages | Manual/admin or re-save via UI |
-
----
+| — | Turn off UAT widget after testing | Set `BETA_FEEDBACK_ENABLED=false` + `NEXT_PUBLIC_BETA_FEEDBACK=false` |
 
 ## Organizations (industry model — important)
 
@@ -322,6 +355,9 @@ Note: Tailwind classes use prefix `ethio-*` (legacy) — maps to **blue** brand,
 - `frontend/src/components/admin/*` — admin dashboard panels (`AdminDashboardPanel.tsx` is main embed)
 - `frontend/src/components/WhoWeServe.tsx` — homepage audience cards
 - `frontend/src/components/dashboard/*` — `CounselorDashboard`, `SupervisionDashboard`, `DashboardTabs`, `AccountTabs`
+- `frontend/src/components/BetaFeedbackWidget.tsx` — **Give Us Your Feedback** (testing UAT)
+- `frontend/src/lib/feedbackPageContext.tsx` — page/tab context for feedback widget
+- `frontend/src/lib/pageLocation.ts` — pathname labels + DOM tab capture
 
 ---
 
@@ -351,6 +387,7 @@ Note: Tailwind classes use prefix `ethio-*` (legacy) — maps to **blue** brand,
 ```
 NEXT_PUBLIC_API_URL=http://127.0.0.1:5050/api/v1
 NEXT_PUBLIC_APP_NAME=Tesfa Counseling
+NEXT_PUBLIC_BETA_FEEDBACK=true       # show Give Us Your Feedback widget
 ```
 
 ---
@@ -364,6 +401,7 @@ backend/
 │   ├── config.py              # postgres:// fix, local SQLite path, DAILY_API_KEY, SMTP
 │   ├── datetime_utils.py      # UTC normalization for API + display
 │   ├── db_utils.py            # SQLite WAL, busy timeout, copy helper
+│   ├── db_bootstrap.py        # Postgres: ensure testing_feedback table on startup
 │   ├── routes/
 │   │   ├── auth.py
 │   │   ├── admin.py           # overview, users, roles grant/revoke, providers, audit, orgs, approvals
@@ -373,7 +411,9 @@ backend/
 │   │   ├── providers.py       # GET/PATCH /providers/me
 │   │   ├── availability.py
 │   │   ├── appointments.py    # book, cancel, reschedule, get, slots, video-join redirect
-│   │   ├── health.py            # daily_api_key_set, smtp_configured
+│   │   ├── feedback.py          # Client feedback (ongoing)
+│   │   ├── testing_feedback.py  # UAT page feedback (testing phase)
+│   │   ├── health.py            # daily_api_key_set, smtp_configured, beta_feedback_enabled, testing_feedback_db_ready
 │   │   └── telegram.py
 │   ├── services/
 │   │   ├── scheduling.py
@@ -387,7 +427,14 @@ backend/
 │   ├── a1b2c3d4e5f6_trainee_languages.py
 │   ├── b2c3d4e5f6a7_appointment_video.py
 │   ├── c3d4e5f6a7b8_clinical_notes.py
-│   └── d4e5f6a7b8c9_intake_session_mode.py   # head
+│   ├── d4e5f6a7b8c9_intake_session_mode.py
+│   ├── g7b8c9d0e1f2_client_feedback.py
+│   ├── h8c9d0e1f2a3_provider_schedule_ack.py
+│   ├── i9d0e1f2a3b4_testing_feedback.py
+│   ├── j9e0f1a2b3c4_testing_feedback_guest.py
+│   ├── k0e1f2a3b4c5_testing_feedback_repair.py
+│   ├── l0e1f2a3b4c5d6_testing_feedback_postgres_repair.py
+│   └── m0e1f2a3b4c5d6_testing_feedback_page_context.py   # head
 ├── migrate_client_org_links.py
 ├── seed_admin.py
 ├── seed_demo_counselor.py
@@ -419,6 +466,9 @@ backend/
 | GET/POST | `/clinical-notes/...` | JWT | Provider notes, supervision, cosign |
 | GET | `/intake/supervision` | JWT + supervisor | Client intakes for supervisor's trainees |
 | GET/POST | `/intake/...` | JWT | Trainee intake forms (client fill, trainee list) |
+| POST | `/testing-feedback` | JWT optional | UAT page feedback (guests OK with name) |
+| GET | `/testing-feedback/enabled` | No | Whether beta feedback is on |
+| GET/PATCH | `/admin/testing-feedback` | JWT + platform_admin | UAT feedback inbox |
 
 ---
 
@@ -475,6 +525,7 @@ SMTP_PASSWORD=                      # SendGrid API key (SG....)
 SMTP_FROM=noreply@tesfacounseling.com
 APP_URL=https://www.tesfacounseling.com
 API_PUBLIC_URL=https://tesfa-counseling.onrender.com/api/v1
+BETA_FEEDBACK_ENABLED=true          # set false after UAT; on by default if unset
 ADMIN_EMAIL=admin@tesfacounseling.local
 ADMIN_PASSWORD=admin-change-me
 ```
@@ -483,6 +534,7 @@ ADMIN_PASSWORD=admin-change-me
 ```
 NEXT_PUBLIC_API_URL=http://127.0.0.1:5050/api/v1
 NEXT_PUBLIC_APP_NAME=Tesfa Counseling
+NEXT_PUBLIC_BETA_FEEDBACK=true       # show Give Us Your Feedback widget
 ```
 
 ---
@@ -492,18 +544,20 @@ NEXT_PUBLIC_APP_NAME=Tesfa Counseling
 **Live URLs:**
 | Service | URL |
 |---------|-----|
+| **Primary site** | `https://www.tesfacounseling.com` |
 | Frontend (Netlify) | `https://tesfa-counseling.netlify.app` |
-| Custom domain | `https://www.tesfacounseling.com` |
 | API (Render) | `https://tesfa-counseling.onrender.com` |
 
 See **`DEPLOY.md`**. Summary:
-1. Render: API from `render.yaml`, set `DATABASE_URL`, `CORS_ORIGINS`, `DAILY_API_KEY`, `SMTP_*`, secrets
-2. Netlify: frontend, set `NEXT_PUBLIC_API_URL=https://tesfa-counseling.onrender.com/api/v1`
+1. Render: API from `render.yaml`, set `DATABASE_URL`, `CORS_ORIGINS`, `DAILY_API_KEY`, `SMTP_*`, `BETA_FEEDBACK_ENABLED`, secrets
+2. Netlify: frontend; `NEXT_PUBLIC_API_URL=https://tesfa-counseling.onrender.com/api/v1`; `NEXT_PUBLIC_BETA_FEEDBACK` in `netlify.toml`
 3. Run once: `python seed_admin.py`, `python migrate_client_org_links.py`
-4. Migrations run automatically via `preDeployCommand: flask db upgrade`
-5. **CORS_ORIGINS** must include every frontend origin (Netlify + custom domain + `http://` while SSL pending), e.g.:
-   `https://tesfa-counseling.netlify.app,https://www.tesfacounseling.com,https://tesfacounseling.com`
-6. After env var changes on Render, **Restart service** (or deploy) — saving env alone does not reload workers
+4. Migrations run on deploy (`preDeployCommand`) **and** at API start (`flask db upgrade && gunicorn` in `render.yaml`)
+5. **CORS_ORIGINS** must include every frontend origin, e.g.:
+   `https://www.tesfacounseling.com,https://tesfacounseling.com,https://tesfa-counseling.netlify.app`
+6. After env var changes on Render, **Restart service** — saving env alone does not reload workers
+7. **Netlify “Canceled”** on backend-only pushes is normal (no frontend file changes) — not a failure
+8. Verify feedback DB: `GET /api/v1/health` → `testing_feedback_db_ready: true`
 
 ---
 
@@ -526,6 +580,12 @@ See **`DEPLOY.md`**. Summary:
 15. **Remember to start Flask** when testing backend changes (user rule)
 16. **Supervisor intakes** — use `/supervision/intakes`, not the cosign queue on `/supervision`
 17. **Legacy folders** — ignore `g:\My Drive\Ethio Counceling` and `C:\dev\ethio-counseling` after confirming new setup works
+18. **Two feedback systems** — client dashboard **Feedback** ≠ floating **Give Us Your Feedback** (UAT); different tables and admin tabs
+19. **UAT submit errors** — check `GET /api/v1/health` for `beta_feedback_enabled` and `testing_feedback_db_ready`; restart Render after env changes
+20. **Netlify “Canceled” deploy** — expected when only backend files changed; not a frontend failure
+21. **Wire more page context** — book flow steps etc. need `FeedbackPageLocationSetter` if testers need finer labels
+22. **No formal assigned counselor** — “your counselor” on `/schedule` = most recent provider(s) from appointments
+23. **SQLite schedule_change_type** — legacy rows may store `BOOKED`/`RESCHEDULED` (names); model expects `booked`/`rescheduled` — `normalize_sqlite_schedule_change_types()` on API boot
 
 ---
 
@@ -560,6 +620,11 @@ See **`DEPLOY.md`**. Summary:
 | Custom domain register fails | Add domain to `CORS_ORIGINS` on Render |
 | Long Daily URL in email | Short `/video-join` link; HTML shows “Video room” text |
 | Video link works before session | Join window enforced on API, dashboard, and `/video-join` |
+| Testing feedback “not enabled” | `BETA_FEEDBACK_ENABLED` default true; set on Render + restart |
+| Testing feedback 500 on submit | Postgres missing `testing_feedback` table — migrations + `db_bootstrap.py` on startup |
+| Next.js plain unstyled HTML | Corrupt `.next` dev cache — `start-frontend.ps1` clears and restarts |
+| Geʽez logo clipped (`ስፋ`) | Smaller font in `BrandLogo.tsx` badge |
+| My schedule past sessions 500 | SQLite `BOOKED` vs enum `booked` — normalize on boot + data fix |
 
 ---
 
@@ -648,6 +713,13 @@ See **`DEPLOY.md`**. Summary:
 | Dev database | `tesfa_counseling.db` (project root) |
 | Deploy | `DEPLOY.md`, `render.yaml`, `netlify.toml` |
 | Org migration | `backend/migrate_client_org_links.py` |
+| UAT feedback widget | `frontend/src/components/BetaFeedbackWidget.tsx` |
+| UAT feedback API | `backend/app/routes/testing_feedback.py` |
+| UAT admin inbox | `frontend/src/components/admin/AdminTestingFeedback.tsx` |
+| Page context for feedback | `frontend/src/lib/feedbackPageContext.tsx`, `pageLocation.ts` |
+| DB bootstrap (prod) | `backend/app/db_bootstrap.py` |
+| Client schedule page | `frontend/src/app/schedule/page.tsx` |
+| Client sessions list | `frontend/src/components/dashboard/ClientSessionsList.tsx` |
 
 ---
 
@@ -768,6 +840,57 @@ See **`DEPLOY.md`**. Summary:
 **Git / deploy**
 - Repo: `TesfaCounseling/Tesfa-Counseling` branch `main`; pushes auto-deploy Render + Netlify
 - Collaborator push as `jaklilu`
+
+### 2026-07-06 — Testing-phase feedback (UAT), custom domain primary
+
+**Give Us Your Feedback (UAT)**
+- Floating widget on all pages when `NEXT_PUBLIC_BETA_FEEDBACK=true` (Netlify `netlify.toml`)
+- Separate from client dashboard **Feedback** form — own table `testing_feedback`, admin **Testing** tab
+- Guests submit with name; logged-in users auto-identified (role captured: client, counselor, platform_admin, guest)
+- **Page context** — readable location string (e.g. `Dashboard › Client › Upcoming sessions`, `Counselor › Manage schedule`)
+- Context wired: dashboard `AccountTabs` / `DashboardTabs`, admin section tabs, provider pages (profile, schedule, notes, intakes)
+- Widget shows **You are on** preview before send; admin inbox shows context as primary title
+
+**Backend / production fixes**
+- Migrations `i9`–`m0`; guest nullable `user_id` + `submitter_name`; `page_context` column
+- `db_bootstrap.py` creates/repairs Postgres table on API boot if migrations missed
+- `BETA_FEEDBACK_ENABLED` defaults **on** when env unset; health exposes `beta_feedback_enabled`, `testing_feedback_db_ready`
+- `render.yaml`: `flask db upgrade && gunicorn` on start; `BETA_FEEDBACK_ENABLED=true`
+- Fixed submit 500s when production DB lacked `testing_feedback` schema
+
+**UX / branding**
+- Widget label: **Give Us Your Feedback** (was “Testing feedback”)
+- `BrandLogo.tsx` — full Geʽez `ተስፋ` no longer clipped
+- `brand-text` CSS fallback when gradient clip unsupported
+- Removed homepage “We're testing the site” banner
+
+**Status:** UAT feedback working in production (user confirmed 2026-07-06).
+
+**Domain**
+- **`www.tesfacounseling.com`** is primary site for testers and production traffic
+- `APP_URL` and `CORS_ORIGINS` should use custom domain first
+
+**Git**
+- Commits through `81d2be6` on `main`; auto-deploy Render + Netlify
+
+### 2026-07-12 — Client schedule page, homepage/copy polish
+
+**Client scheduling**
+- `/schedule` is booking-first: Schedule a session with counselor(s) from appointment history
+- New clients without history → Find a counselor CTA
+- Dashboard: Find a counselor + My schedule cards; shared `ClientSessionsList`
+- No assigned-counselor DB field — relationship inferred from bookings
+- Fixed past-appointments 500: SQLite `schedule_change_type` name→value normalize on API boot
+
+**Homepage / copy**
+- Hero: `Tesfa (ተስፋ) — Bringing Hope and Healing Wherever You Are.`
+- Mission: “virtual counseling service” (was “center”)
+- Couples card blurb starts with Pre-marital Counseling
+- Find counselor Amharic: ምክርኛ → አማካሪ (and related page strings)
+- View availability button centered on provider cards
+
+**Git**
+- Pushed to `main` (this session)
 
 ---
 

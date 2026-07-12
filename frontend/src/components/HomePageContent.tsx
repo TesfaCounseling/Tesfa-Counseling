@@ -43,8 +43,10 @@ export default function HomePageContent({ providers }: HomePageContentProps) {
         eyebrow={t("home.eyebrow")}
         title={
           <>
-            <span className="brand-text">{TESFA_GEEZ}</span>{" "}
-            <span className="font-bold text-[#EBBF13]">— {t("home.heroGold")},</span>{" "}
+            <span className="brand-text">
+              Tesfa ({TESFA_GEEZ})
+            </span>{" "}
+            <span className="font-bold text-[#EBBF13]">— {t("home.heroGold")}</span>{" "}
             <span className="brand-text">{t("home.heroRest")}</span>
           </>
         }
