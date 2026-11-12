@@ -229,7 +229,7 @@ export function loginUser(email: string, password: string) {
 }
 
 export function requestPasswordReset(email: string) {
-  return apiFetch<{ message: string }>("/auth/forgot-password", {
+  return apiFetch<{ message: string; exists?: boolean }>("/auth/forgot-password", {
     method: "POST",
     body: JSON.stringify({ email }),
   });

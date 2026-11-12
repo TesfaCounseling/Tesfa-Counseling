@@ -33,9 +33,6 @@ auth_bp = Blueprint("auth", __name__)
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 VALID_REGISTER_ROLES = {UserRole.THERAPIST, UserRole.CLIENT}
 PASSWORD_RESET_EXPIRY_MINUTES = 60
-FORGOT_PASSWORD_MESSAGE = (
-    "If an account exists for that email, you will receive password reset instructions shortly."
-)
 
 
 def _hash_reset_token(token: str) -> str:
@@ -251,29 +248,50 @@ def forgot_password():
         return jsonify({"error": "ValidationError", "message": "Invalid email address"}), 400
 
     user = User.query.filter_by(email=email).first()
-    if user and user.is_active:
-        PasswordResetToken.query.filter_by(user_id=user.id, used_at=None).delete(synchronize_session=False)
+    if not user or not user.is_active:
+        return jsonify(
+            {
+                "exists": False,
+                "message": "No account found with that email. Check the address or create an account.",
+            }
+        ), 404
 
-        raw_token = secrets.token_urlsafe(32)
-        reset = PasswordResetToken(
-            user_id=user.id,
-            token_hash=_hash_reset_token(raw_token),
-            expires_at=utcnow() + timedelta(minutes=PASSWORD_RESET_EXPIRY_MINUTES),
-        )
-        db.session.add(reset)
-        db.session.flush()
+    PasswordResetToken.query.filter_by(user_id=user.id, used_at=None).delete(synchronize_session=False)
 
-        reset_url = f"{_app_base_url()}/reset-password?token={raw_token}"
-        send_password_reset_email(
-            to_address=user.email,
-            recipient_name=user.first_name or user.full_name,
-            reset_url=reset_url,
-            expires_minutes=PASSWORD_RESET_EXPIRY_MINUTES,
-        )
-        log_audit("user.password_reset_requested", "user", str(user.id), actor_id=user.id)
-        db.session.commit()
+    raw_token = secrets.token_urlsafe(32)
+    reset = PasswordResetToken(
+        user_id=user.id,
+        token_hash=_hash_reset_token(raw_token),
+        expires_at=utcnow() + timedelta(minutes=PASSWORD_RESET_EXPIRY_MINUTES),
+    )
+    db.session.add(reset)
+    db.session.flush()
 
-    return jsonify({"message": FORGOT_PASSWORD_MESSAGE})
+    reset_url = f"{_app_base_url()}/reset-password?token={raw_token}"
+    sent = send_password_reset_email(
+        to_address=user.email,
+        recipient_name=user.first_name or user.full_name,
+        reset_url=reset_url,
+        expires_minutes=PASSWORD_RESET_EXPIRY_MINUTES,
+    )
+    if not sent:
+        db.session.rollback()
+        return jsonify(
+            {
+                "error": "ServiceUnavailable",
+                "message": "Could not send the reset email. Please try again in a few minutes.",
+            }
+        ), 503
+
+    log_audit("user.password_reset_requested", "user", str(user.id), actor_id=user.id)
+    db.session.commit()
+
+    return jsonify(
+        {
+            "exists": True,
+            "message": "We found your account and sent a reset link. Check your inbox and spam folder.",
+        }
+    )
 
 
 @auth_bp.route("/reset-password", methods=["POST"])
