@@ -14,18 +14,30 @@ logger = logging.getLogger(__name__)
 
 
 def send_email(to_address: str, subject: str, body: str, html_body: str | None = None) -> bool:
-    if not to_address:
-        return False
+    ok, _reason = send_email_with_reason(to_address, subject, body, html_body)
+    return ok
 
-    smtp_host = os.environ.get("SMTP_HOST", "")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_user = os.environ.get("SMTP_USER", "")
-    smtp_password = os.environ.get("SMTP_PASSWORD", "")
-    from_address = os.environ.get("SMTP_FROM", smtp_user or "noreply@localhost")
+
+def send_email_with_reason(
+    to_address: str, subject: str, body: str, html_body: str | None = None
+) -> tuple[bool, str]:
+    if not to_address:
+        return False, "No recipient email"
+
+    smtp_host = os.environ.get("SMTP_HOST", "").strip()
+    smtp_port = int(os.environ.get("SMTP_PORT", "587") or "587")
+    smtp_user = os.environ.get("SMTP_USER", "").strip()
+    smtp_password = os.environ.get("SMTP_PASSWORD", "").strip()
+    from_address = (os.environ.get("SMTP_FROM", "") or smtp_user or "noreply@localhost").strip()
 
     if not smtp_host:
         logger.info("Email stub → %s | %s | %s", to_address, subject, body.replace("\n", " "))
-        return True
+        return True, "stubbed (SMTP_HOST not set)"
+
+    if not smtp_user or not smtp_password:
+        reason = "SMTP_USER or SMTP_PASSWORD is empty"
+        logger.error("Email send failed: %s", reason)
+        return False, reason
 
     try:
         msg = EmailMessage()
@@ -35,19 +47,26 @@ def send_email(to_address: str, subject: str, body: str, html_body: str | None =
         msg.set_content(body)
         if html_body:
             msg.add_alternative(html_body, subtype="html")
-        with smtplib.SMTP(smtp_host, smtp_port, timeout=10) as server:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as server:
+            server.ehlo()
             server.starttls()
-            if smtp_user and smtp_password:
-                server.login(smtp_user, smtp_password)
+            server.ehlo()
+            server.login(smtp_user, smtp_password)
             server.send_message(msg)
         logger.info("Email sent → %s | %s", to_address, subject)
-        return True
-    except smtplib.SMTPException as exc:
+        return True, "sent"
+    except smtplib.SMTPAuthenticationError as exc:
+        reason = f"SMTP auth failed ({exc.smtp_code}): check SMTP_USER=apikey and SMTP_PASSWORD API key"
         logger.error("Email send failed (SMTP): %s", exc)
-        return False
+        return False, reason
+    except smtplib.SMTPException as exc:
+        reason = f"SMTP error: {exc}"
+        logger.error("Email send failed (SMTP): %s", exc)
+        return False, reason
     except OSError as exc:
+        reason = f"SMTP connection failed: {exc}"
         logger.error("Email send failed: %s", exc)
-        return False
+        return False, reason
 
 
 def smtp_configured() -> bool:
@@ -60,10 +79,10 @@ def send_test_email(to_address: str) -> dict:
     if not smtp_configured():
         return {"ok": False, "message": "SMTP_HOST is not set on Render"}
     plain, html_body = email_templates.test_email()
-    ok = send_email(to_address, "Tesfa Counseling test email", plain, html_body)
+    ok, reason = send_email_with_reason(to_address, "Tesfa Counseling test email", plain, html_body)
     if ok:
         return {"ok": True, "message": f"Test email sent to {to_address}"}
-    return {"ok": False, "message": "Send failed — check Render logs for Email send failed"}
+    return {"ok": False, "message": f"Send failed — {reason}"}
 
 
 def send_password_reset_email(*, to_address: str, recipient_name: str, reset_url: str, expires_minutes: int) -> bool:
@@ -72,7 +91,12 @@ def send_password_reset_email(*, to_address: str, recipient_name: str, reset_url
         reset_url=reset_url,
         expires_minutes=expires_minutes,
     )
-    return send_email(to_address, "Reset your password — Tesfa Counseling", plain, html_body)
+    ok, reason = send_email_with_reason(
+        to_address, "Reset your password — Tesfa Counseling", plain, html_body
+    )
+    if not ok:
+        logger.error("Password reset email failed for %s: %s", to_address, reason)
+    return ok
 
 
 def send_telegram_message(chat_id: str, text: str) -> bool:
