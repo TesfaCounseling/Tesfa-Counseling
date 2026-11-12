@@ -57,8 +57,13 @@ def create_app(config_name: str | None = None) -> Flask:
     app.cli.add_command(send_reminders_command)
 
     with app.app_context():
-        from app.db_bootstrap import ensure_testing_feedback_schema, normalize_sqlite_schedule_change_types
+        from app.db_bootstrap import (
+            ensure_password_reset_schema,
+            ensure_testing_feedback_schema,
+            normalize_sqlite_schedule_change_types,
+        )
 
+        ensure_password_reset_schema()
         ensure_testing_feedback_schema()
         normalize_sqlite_schedule_change_types()
 

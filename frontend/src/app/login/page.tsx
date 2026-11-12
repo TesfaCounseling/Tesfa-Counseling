@@ -74,6 +74,12 @@ function LoginForm() {
           />
         </label>
 
+        <p className="text-right text-sm">
+          <a href="/forgot-password" className="link-inline">
+            {t("login.forgotPassword")}
+          </a>
+        </p>
+
         {error && (
           <p className="alert-error" role="alert">
             {error}

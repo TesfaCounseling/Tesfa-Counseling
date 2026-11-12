@@ -228,6 +228,20 @@ export function loginUser(email: string, password: string) {
   });
 }
 
+export function requestPasswordReset(email: string) {
+  return apiFetch<{ message: string }>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export function resetPassword(token: string, password: string) {
+  return apiFetch<{ message: string }>("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify({ token, password }),
+  });
+}
+
 export function getMe() {
   return apiFetch<{ user: AuthUser }>("/auth/me", {}, true);
 }

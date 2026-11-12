@@ -73,6 +73,9 @@ class User(db.Model):
     )
     client_profile = relationship("ClientProfile", back_populates="user", uselist=False, cascade="all, delete-orphan")
     telegram_link = relationship("TelegramLink", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    password_reset_tokens = relationship(
+        "PasswordResetToken", back_populates="user", cascade="all, delete-orphan"
+    )
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -242,6 +245,21 @@ class AuditLog(db.Model):
     details: Mapped[str | None] = mapped_column(db.Text)
     ip_address: Mapped[str | None] = mapped_column(db.String(45))
     created_at: Mapped[datetime] = mapped_column(db.DateTime(timezone=True), default=utcnow, nullable=False, index=True)
+
+
+class PasswordResetToken(db.Model):
+    __tablename__ = "password_reset_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), db.ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    token_hash: Mapped[str] = mapped_column(db.String(64), unique=True, nullable=False, index=True)
+    expires_at: Mapped[datetime] = mapped_column(db.DateTime(timezone=True), nullable=False, index=True)
+    used_at: Mapped[datetime | None] = mapped_column(db.DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(db.DateTime(timezone=True), default=utcnow, nullable=False)
+
+    user = relationship("User", back_populates="password_reset_tokens")
 
 
 class AppointmentType(str, enum.Enum):

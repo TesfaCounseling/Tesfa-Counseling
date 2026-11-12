@@ -265,6 +265,31 @@ def client_feedback_email(
     return plain, wrap_email_html(title=f"Client {category_label}", preheader=subject, body_html=body)
 
 
+def password_reset_email(*, recipient_name: str, reset_url: str, expires_minutes: int) -> tuple[str, str]:
+    plain = (
+        f"Hello {recipient_name},\n\n"
+        "We received a request to reset your Tesfa Counseling password.\n\n"
+        f"Reset your password (link expires in {expires_minutes} minutes):\n"
+        f"{reset_url}\n\n"
+        "If you did not request this, you can ignore this email. Your password will stay the same.\n"
+    )
+    body = (
+        f'<p style="margin:0 0 8px;color:{INK};font-size:18px;font-weight:bold;">Reset your password</p>'
+        f'<p style="margin:0 0 16px;color:{INK_MUTED};font-size:15px;line-height:1.5;">'
+        f"Hello {_esc(recipient_name)}, we received a request to reset your password.</p>"
+        f'<p style="margin:0;color:{INK_MUTED};font-size:14px;line-height:1.5;">'
+        f"This link expires in {_esc(expires_minutes)} minutes.</p>"
+        + _cta_button("Choose a new password", reset_url)
+        + f'<p style="margin:20px 0 0;color:{INK_MUTED};font-size:13px;line-height:1.5;">'
+        "If you did not request this, you can ignore this email.</p>"
+    )
+    return plain, wrap_email_html(
+        title="Reset your password",
+        preheader="Choose a new password for your Tesfa Counseling account",
+        body_html=body,
+    )
+
+
 def test_email() -> tuple[str, str]:
     plain = (
         "Hello,\n\n"

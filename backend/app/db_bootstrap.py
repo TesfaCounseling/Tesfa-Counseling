@@ -10,6 +10,16 @@ from app.extensions import db
 logger = logging.getLogger(__name__)
 
 
+def ensure_password_reset_schema() -> None:
+    """Create password_reset_tokens if missing (local SQLite or skipped migrate)."""
+    from app.models import PasswordResetToken
+
+    try:
+        PasswordResetToken.__table__.create(bind=db.engine, checkfirst=True)
+    except Exception as exc:
+        logger.warning("password_reset_tokens bootstrap skipped: %s", exc)
+
+
 def ensure_testing_feedback_schema() -> None:
     if not beta_feedback_enabled():
         return

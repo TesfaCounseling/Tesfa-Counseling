@@ -66,6 +66,15 @@ def send_test_email(to_address: str) -> dict:
     return {"ok": False, "message": "Send failed — check Render logs for Email send failed"}
 
 
+def send_password_reset_email(*, to_address: str, recipient_name: str, reset_url: str, expires_minutes: int) -> bool:
+    plain, html_body = email_templates.password_reset_email(
+        recipient_name=recipient_name,
+        reset_url=reset_url,
+        expires_minutes=expires_minutes,
+    )
+    return send_email(to_address, "Reset your password — Tesfa Counseling", plain, html_body)
+
+
 def send_telegram_message(chat_id: str, text: str) -> bool:
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     if not token or not chat_id:

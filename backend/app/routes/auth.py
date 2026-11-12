@@ -1,5 +1,9 @@
+import hashlib
+import os
 import re
+import secrets
 import uuid
+from datetime import timedelta
 
 from flask import Blueprint, jsonify, request
 from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt_identity, jwt_required
@@ -11,20 +15,43 @@ from app.models import (
     ConsentRecord,
     ConsentType,
     OrganizationMember,
+    PasswordResetToken,
     TherapistProfile,
     TraineeProfile,
     User,
     UserRole,
+    utcnow,
 )
 from sqlalchemy.exc import OperationalError
 
 from app.db_utils import run_with_db_retry
+from app.services.notifications import send_password_reset_email
 from app.utils import create_provider_organization, log_audit
 
 auth_bp = Blueprint("auth", __name__)
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 VALID_REGISTER_ROLES = {UserRole.THERAPIST, UserRole.CLIENT}
+PASSWORD_RESET_EXPIRY_MINUTES = 60
+FORGOT_PASSWORD_MESSAGE = (
+    "If an account exists for that email, you will receive password reset instructions shortly."
+)
+
+
+def _hash_reset_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _app_base_url() -> str:
+    return os.environ.get("APP_URL", "https://www.tesfacounseling.com").rstrip("/")
+
+
+def _as_aware_utc(dt):
+    from datetime import timezone
+
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
 
 
 def _user_to_dict(user: User) -> dict:
@@ -213,6 +240,78 @@ def refresh():
         return jsonify({"error": "Unauthorized", "message": "Invalid or inactive user"}), 401
 
     return jsonify({"access_token": create_access_token(identity=str(user.id))})
+
+
+@auth_bp.route("/forgot-password", methods=["POST"])
+def forgot_password():
+    data = request.get_json(silent=True) or {}
+    email = (data.get("email") or "").strip().lower()
+
+    if not EMAIL_RE.match(email):
+        return jsonify({"error": "ValidationError", "message": "Invalid email address"}), 400
+
+    user = User.query.filter_by(email=email).first()
+    if user and user.is_active:
+        PasswordResetToken.query.filter_by(user_id=user.id, used_at=None).delete(synchronize_session=False)
+
+        raw_token = secrets.token_urlsafe(32)
+        reset = PasswordResetToken(
+            user_id=user.id,
+            token_hash=_hash_reset_token(raw_token),
+            expires_at=utcnow() + timedelta(minutes=PASSWORD_RESET_EXPIRY_MINUTES),
+        )
+        db.session.add(reset)
+        db.session.flush()
+
+        reset_url = f"{_app_base_url()}/reset-password?token={raw_token}"
+        send_password_reset_email(
+            to_address=user.email,
+            recipient_name=user.first_name or user.full_name,
+            reset_url=reset_url,
+            expires_minutes=PASSWORD_RESET_EXPIRY_MINUTES,
+        )
+        log_audit("user.password_reset_requested", "user", str(user.id), actor_id=user.id)
+        db.session.commit()
+
+    return jsonify({"message": FORGOT_PASSWORD_MESSAGE})
+
+
+@auth_bp.route("/reset-password", methods=["POST"])
+def reset_password():
+    data = request.get_json(silent=True) or {}
+    token = (data.get("token") or "").strip()
+    password = data.get("password") or ""
+
+    if not token:
+        return jsonify({"error": "ValidationError", "message": "Reset token is required"}), 400
+    if len(password) < 8:
+        return jsonify({"error": "ValidationError", "message": "Password must be at least 8 characters"}), 400
+
+    reset = PasswordResetToken.query.filter_by(token_hash=_hash_reset_token(token)).first()
+    now = utcnow()
+    if not reset or reset.used_at is not None or _as_aware_utc(reset.expires_at) < now:
+        return jsonify(
+            {"error": "ValidationError", "message": "This reset link is invalid or has expired"}
+        ), 400
+
+    user = db.session.get(User, reset.user_id)
+    if not user or not user.is_active:
+        return jsonify(
+            {"error": "ValidationError", "message": "This reset link is invalid or has expired"}
+        ), 400
+
+    user.set_password(password)
+    reset.used_at = now
+    PasswordResetToken.query.filter(
+        PasswordResetToken.user_id == user.id,
+        PasswordResetToken.id != reset.id,
+        PasswordResetToken.used_at.is_(None),
+    ).delete(synchronize_session=False)
+
+    log_audit("user.password_reset_completed", "user", str(user.id), actor_id=user.id)
+    db.session.commit()
+
+    return jsonify({"message": "Password updated. You can sign in with your new password."})
 
 
 @auth_bp.route("/me", methods=["GET"])
