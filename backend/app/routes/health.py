@@ -28,6 +28,9 @@ def health():
         "service": "tesfa-counseling-api",
         "daily_api_key_set": bool(os.environ.get("DAILY_API_KEY", "").strip()),
         "smtp_configured": smtp_configured(),
+        "smtp_user_set": bool(os.environ.get("SMTP_USER", "").strip()),
+        "smtp_password_set": bool(os.environ.get("SMTP_PASSWORD", "").strip()),
+        "smtp_from_set": bool(os.environ.get("SMTP_FROM", "").strip()),
         "beta_feedback_enabled": beta_enabled,
         "testing_feedback_db_ready": _testing_feedback_db_ready() if beta_enabled else False,
     })
