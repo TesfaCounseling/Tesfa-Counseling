@@ -22,7 +22,7 @@
 | API | Flask, JWT, SQLAlchemy, Alembic | Render — `https://tesfa-counseling.onrender.com` |
 | DB | SQLite (dev) / Postgres (prod) | Netlify Database → `DATABASE_URL` on Render |
 | Video | Daily.co | `DAILY_API_KEY` on Render (required for join URLs) |
-| Email | SendGrid SMTP | `SMTP_*` on Render; domain `tesfacounseling.com` authenticated in SendGrid |
+| Email | **Brevo** (preferred) | `BREVO_API_KEY` + `SMTP_FROM` on Render; free 300/day. Skill: `.cursor/skills/outbound-email`. SendGrid legacy only. |
 | Notifications | HTML email + Telegram stub + reminders CLI | Email live in prod when SMTP configured |
 
 **Workspace (canonical):** `C:\dev\tesfa-counseling` — full project on local disk. Open this folder in Cursor for development and Git.

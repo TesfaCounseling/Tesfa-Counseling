@@ -18,6 +18,53 @@ def send_email(to_address: str, subject: str, body: str, html_body: str | None =
     return ok
 
 
+def _app_from_name() -> str:
+    return os.environ.get("APP_NAME", "Tesfa Counseling")
+
+
+def _send_via_brevo_api(
+    *,
+    api_key: str,
+    from_address: str,
+    to_address: str,
+    subject: str,
+    body: str,
+    html_body: str | None,
+) -> tuple[bool, str]:
+    payload: dict = {
+        "sender": {"email": from_address, "name": _app_from_name()},
+        "to": [{"email": to_address}],
+        "subject": subject,
+        "textContent": body,
+    }
+    if html_body:
+        payload["htmlContent"] = html_body
+    try:
+        response = requests.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={
+                "api-key": api_key,
+                "accept": "application/json",
+                "content-type": "application/json",
+            },
+            json=payload,
+            timeout=20,
+        )
+    except requests.RequestException as exc:
+        reason = f"Brevo API connection failed: {exc}"
+        logger.error("Email send failed: %s", reason)
+        return False, reason
+
+    if response.status_code in (200, 201, 202):
+        logger.info("Email sent via Brevo API → %s | %s", to_address, subject)
+        return True, "sent via Brevo API"
+
+    detail = (response.text or "").strip()[:300]
+    reason = f"Brevo API {response.status_code}: {detail or 'no body'}"
+    logger.error("Email send failed: %s", reason)
+    return False, reason
+
+
 def _send_via_sendgrid_api(
     *,
     api_key: str,
@@ -32,7 +79,7 @@ def _send_via_sendgrid_api(
         content.append({"type": "text/html", "value": html_body})
     payload = {
         "personalizations": [{"to": [{"email": to_address}]}],
-        "from": {"email": from_address, "name": os.environ.get("APP_NAME", "Tesfa Counseling")},
+        "from": {"email": from_address, "name": _app_from_name()},
         "subject": subject,
         "content": content,
     }
@@ -71,11 +118,29 @@ def send_email_with_reason(
     smtp_port = int(os.environ.get("SMTP_PORT", "587") or "587")
     smtp_user = os.environ.get("SMTP_USER", "").strip()
     smtp_password = os.environ.get("SMTP_PASSWORD", "").strip()
+    brevo_api_key = os.environ.get("BREVO_API_KEY", "").strip()
     from_address = (os.environ.get("SMTP_FROM", "") or smtp_user or "noreply@localhost").strip()
+    host_l = smtp_host.lower()
 
-    if not smtp_host:
+    if not smtp_host and not brevo_api_key:
         logger.info("Email stub → %s | %s | %s", to_address, subject, body.replace("\n", " "))
-        return True, "stubbed (SMTP_HOST not set)"
+        return True, "stubbed (no BREVO_API_KEY / SMTP_HOST)"
+
+    # Prefer Brevo HTTPS API (more reliable on Render than SMTP).
+    if brevo_api_key or "brevo" in host_l or "sendinblue" in host_l:
+        api_key = brevo_api_key or smtp_password
+        if not api_key:
+            reason = "BREVO_API_KEY (or SMTP_PASSWORD) is empty"
+            logger.error("Email send failed: %s", reason)
+            return False, reason
+        return _send_via_brevo_api(
+            api_key=api_key,
+            from_address=from_address,
+            to_address=to_address,
+            subject=subject,
+            body=body,
+            html_body=html_body,
+        )
 
     if not smtp_password:
         reason = "SMTP_PASSWORD is empty"
@@ -83,7 +148,7 @@ def send_email_with_reason(
         return False, reason
 
     # SendGrid SMTP from cloud hosts often drops the connection; prefer their HTTPS API.
-    if "sendgrid" in smtp_host.lower():
+    if "sendgrid" in host_l:
         return _send_via_sendgrid_api(
             api_key=smtp_password,
             from_address=from_address,
@@ -115,7 +180,7 @@ def send_email_with_reason(
         logger.info("Email sent → %s | %s", to_address, subject)
         return True, "sent"
     except smtplib.SMTPAuthenticationError as exc:
-        reason = f"SMTP auth failed ({exc.smtp_code}): check SMTP_USER=apikey and SMTP_PASSWORD API key"
+        reason = f"SMTP auth failed ({exc.smtp_code}): check SMTP_USER and SMTP_PASSWORD"
         logger.error("Email send failed (SMTP): %s", exc)
         return False, reason
     except smtplib.SMTPException as exc:
@@ -129,14 +194,17 @@ def send_email_with_reason(
 
 
 def smtp_configured() -> bool:
-    return bool(os.environ.get("SMTP_HOST", "").strip())
+    return bool(
+        os.environ.get("BREVO_API_KEY", "").strip()
+        or os.environ.get("SMTP_HOST", "").strip()
+    )
 
 
 def send_test_email(to_address: str) -> dict:
     if not to_address:
         return {"ok": False, "message": "No recipient email"}
     if not smtp_configured():
-        return {"ok": False, "message": "SMTP_HOST is not set on Render"}
+        return {"ok": False, "message": "BREVO_API_KEY or SMTP_HOST is not set on Render"}
     plain, html_body = email_templates.test_email()
     ok, reason = send_email_with_reason(to_address, "Tesfa Counseling test email", plain, html_body)
     if ok:
