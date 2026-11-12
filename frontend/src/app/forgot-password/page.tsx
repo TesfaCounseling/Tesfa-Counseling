@@ -17,11 +17,10 @@ export default function ForgotPasswordPage() {
     setSuccess("");
     setLoading(true);
 
-    const form = new FormData(e.currentTarget);
+    const email = String(new FormData(e.currentTarget).get("email") || "");
     try {
-      const result = await requestPasswordReset(String(form.get("email")));
+      const result = await requestPasswordReset(email);
       setSuccess(result.message || t("forgot.success"));
-      e.currentTarget.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("forgot.error"));
     } finally {
