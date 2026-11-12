@@ -18,6 +18,49 @@ def send_email(to_address: str, subject: str, body: str, html_body: str | None =
     return ok
 
 
+def _send_via_sendgrid_api(
+    *,
+    api_key: str,
+    from_address: str,
+    to_address: str,
+    subject: str,
+    body: str,
+    html_body: str | None,
+) -> tuple[bool, str]:
+    content = [{"type": "text/plain", "value": body}]
+    if html_body:
+        content.append({"type": "text/html", "value": html_body})
+    payload = {
+        "personalizations": [{"to": [{"email": to_address}]}],
+        "from": {"email": from_address, "name": os.environ.get("APP_NAME", "Tesfa Counseling")},
+        "subject": subject,
+        "content": content,
+    }
+    try:
+        response = requests.post(
+            "https://api.sendgrid.com/v3/mail/send",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=20,
+        )
+    except requests.RequestException as exc:
+        reason = f"SendGrid API connection failed: {exc}"
+        logger.error("Email send failed: %s", reason)
+        return False, reason
+
+    if response.status_code in (200, 202):
+        logger.info("Email sent via SendGrid API → %s | %s", to_address, subject)
+        return True, "sent via SendGrid API"
+
+    detail = (response.text or "").strip()[:300]
+    reason = f"SendGrid API {response.status_code}: {detail or 'no body'}"
+    logger.error("Email send failed: %s", reason)
+    return False, reason
+
+
 def send_email_with_reason(
     to_address: str, subject: str, body: str, html_body: str | None = None
 ) -> tuple[bool, str]:
@@ -34,8 +77,24 @@ def send_email_with_reason(
         logger.info("Email stub → %s | %s | %s", to_address, subject, body.replace("\n", " "))
         return True, "stubbed (SMTP_HOST not set)"
 
-    if not smtp_user or not smtp_password:
-        reason = "SMTP_USER or SMTP_PASSWORD is empty"
+    if not smtp_password:
+        reason = "SMTP_PASSWORD is empty"
+        logger.error("Email send failed: %s", reason)
+        return False, reason
+
+    # SendGrid SMTP from cloud hosts often drops the connection; prefer their HTTPS API.
+    if "sendgrid" in smtp_host.lower():
+        return _send_via_sendgrid_api(
+            api_key=smtp_password,
+            from_address=from_address,
+            to_address=to_address,
+            subject=subject,
+            body=body,
+            html_body=html_body,
+        )
+
+    if not smtp_user:
+        reason = "SMTP_USER is empty"
         logger.error("Email send failed: %s", reason)
         return False, reason
 
