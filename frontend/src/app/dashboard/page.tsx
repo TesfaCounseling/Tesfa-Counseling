@@ -266,9 +266,13 @@ export default function DashboardPage() {
 
   return (
     <div className="page-shell">
-      <SiteHeader showAuth={false} />
+      <SiteHeader showAuth={false} user={user} />
 
-      <PageHero eyebrow={t("dashboard.account")} title={t("dashboard.title")} subtitle={heroSubtitle} />
+      <PageHero
+        eyebrow={user?.full_name || user?.email || t("dashboard.account")}
+        title={t("dashboard.title")}
+        subtitle={heroSubtitle}
+      />
 
       <main className="mx-auto max-w-5xl page-pad pb-12 pt-6">
         {user && showPlatform && !showApprovals && !showCounseling && !showSupervision && (

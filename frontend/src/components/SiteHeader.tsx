@@ -6,10 +6,12 @@ import { usePathname } from "next/navigation";
 import { BrandLogoLink } from "@/components/BrandLogo";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/components/LanguageProvider";
-import { clearAuthSession } from "@/lib/api";
+import { clearAuthSession, getMe, type AuthUser } from "@/lib/api";
 
 type SiteHeaderProps = {
   showAuth?: boolean;
+  /** When a parent already loaded the user, pass it to avoid an extra /me call. */
+  user?: AuthUser | null;
 };
 
 export { clearAuthSession };
@@ -22,26 +24,63 @@ function HomeIcon({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
+function profileInitials(user: AuthUser): string {
+  const first = (user.first_name || "").trim();
+  const last = (user.last_name || "").trim();
+  if (first && last) return `${first[0]}${last[0]}`.toUpperCase();
+  if (user.full_name?.trim()) {
+    const parts = user.full_name.trim().split(/\s+/);
+    return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase() || "?";
+  }
+  return (user.email?.[0] || "?").toUpperCase();
+}
+
 export function isLoggedIn(): boolean {
   if (typeof window === "undefined") return false;
   return !!localStorage.getItem("access_token");
 }
 
-export default function SiteHeader({ showAuth = true }: SiteHeaderProps) {
+export default function SiteHeader({ showAuth = true, user: userProp = null }: SiteHeaderProps) {
   const pathname = usePathname();
   const { t } = useLanguage();
   const [loggedIn, setLoggedIn] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(userProp);
   const onHomePage = pathname === "/";
 
   useEffect(() => {
     setLoggedIn(isLoggedIn());
   }, [pathname]);
 
+  useEffect(() => {
+    if (userProp) {
+      setUser(userProp);
+      return;
+    }
+    if (!loggedIn) {
+      setUser(null);
+      return;
+    }
+    let cancelled = false;
+    getMe()
+      .then((data) => {
+        if (!cancelled) setUser(data.user);
+      })
+      .catch(() => {
+        if (!cancelled) setUser(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loggedIn, userProp, pathname]);
+
   function handleLogout() {
     clearAuthSession();
     setLoggedIn(false);
+    setUser(null);
     window.location.href = "/";
   }
+
+  const displayName = user?.first_name?.trim() || user?.full_name?.trim() || "";
 
   return (
     <header className="site-header sticky top-0 z-50 pt-[var(--safe-top)]">
@@ -68,6 +107,22 @@ export default function SiteHeader({ showAuth = true }: SiteHeaderProps) {
 
               {loggedIn ? (
                 <>
+                  {user && (
+                    <Link
+                      href="/dashboard"
+                      className="inline-flex max-w-[11rem] items-center gap-2 rounded-full border border-ethio-border bg-white/80 py-1 pl-1 pr-2.5 text-sm font-semibold text-ethio-ink shadow-sm sm:max-w-[16rem] sm:pr-3"
+                      title={user.email}
+                      aria-label={`${t("nav.signedInAs")} ${user.full_name || user.email}`}
+                    >
+                      <span
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ethio-gradient text-xs font-bold text-white"
+                        aria-hidden
+                      >
+                        {profileInitials(user)}
+                      </span>
+                      <span className="truncate">{displayName || user.email}</span>
+                    </Link>
+                  )}
                   <Link href="/dashboard" className="btn-ghost px-2.5 text-sm sm:px-4 sm:text-base">
                     {t("nav.dashboard")}
                   </Link>
