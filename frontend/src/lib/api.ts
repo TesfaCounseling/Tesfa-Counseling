@@ -881,10 +881,6 @@ export function cancelAppointment(id: string, reason?: string) {
   );
 }
 
-export function getAppointment(id: string) {
-  return apiFetch<{ appointment: Appointment }>(`/appointments/${id}`, {}, true);
-}
-
 export function rescheduleAppointment(
   id: string,
   payload: { starts_at: string; duration_minutes?: number }

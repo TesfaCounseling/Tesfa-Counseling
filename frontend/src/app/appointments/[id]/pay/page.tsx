@@ -14,8 +14,9 @@ import {
   type PaymentInstructions,
 } from "@/lib/api";
 import { formatMoney } from "@/lib/format";
+import type { TranslationKey } from "@/lib/i18n";
 
-const METHODS: { value: DiasporaPaymentMethod; labelKey: string }[] = [
+const METHODS: { value: DiasporaPaymentMethod; labelKey: TranslationKey }[] = [
   { value: "remitly", labelKey: "pay.methodRemitly" },
   { value: "taptap", labelKey: "pay.methodTaptap" },
   { value: "wise", labelKey: "pay.methodWise" },
