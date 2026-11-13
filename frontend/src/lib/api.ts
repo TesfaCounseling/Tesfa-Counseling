@@ -61,6 +61,14 @@ export interface Appointment {
   pricing_type: string;
   amount_cents: number;
   currency: string;
+  payment_status?: "not_required" | "pending" | "submitted" | "verified" | "rejected";
+  payment_reference?: string | null;
+  payment_method?: string | null;
+  payment_receipt_uploaded?: boolean;
+  payment_submitted_at?: string | null;
+  payment_verified_at?: string | null;
+  payment_rejection_reason?: string | null;
+  payment_required?: boolean;
   provider_name?: string | null;
   client_name?: string | null;
   video_room_url?: string | null;
@@ -69,6 +77,16 @@ export interface Appointment {
   can_join_video?: boolean;
   schedule_alert?: ScheduleAlert;
 }
+
+export interface PaymentInstructions {
+  account_name: string;
+  account_details: string;
+  accepted_methods: string[];
+  notes: string;
+  local_methods_coming_soon?: boolean;
+}
+
+export type DiasporaPaymentMethod = "remitly" | "taptap" | "wise" | "western_union" | "cbe" | "other";
 
 export interface ProviderProfile {
   type: "therapist" | "trainee";
@@ -632,6 +650,47 @@ export function bookAppointment(payload: {
   return apiFetch<{ appointment: Appointment }>(
     "/appointments",
     { method: "POST", body: JSON.stringify({ ...payload, client_timezone: payload.client_timezone || getBrowserTimezone() }) },
+    true
+  );
+}
+
+export function getAppointment(id: string) {
+  return apiFetch<{ appointment: Appointment }>(`/appointments/${id}`, {}, true);
+}
+
+export function getAppointmentPayment(id: string) {
+  return apiFetch<{ appointment: Appointment; instructions: PaymentInstructions }>(
+    `/appointments/${id}/payment`,
+    {},
+    true
+  );
+}
+
+export async function uploadPaymentReceipt(id: string, paymentMethod: DiasporaPaymentMethod, file: File) {
+  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
+  const form = new FormData();
+  form.append("payment_method", paymentMethod);
+  form.append("receipt", file);
+  const res = await fetch(`${getApiUrl()}/appointments/${id}/payment/receipt`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) {
+    throw new Error(apiErrorMessage(data, "Could not upload receipt"));
+  }
+  return data as { appointment: Appointment };
+}
+
+export function paymentReceiptUrl(id: string) {
+  return `${getApiUrl()}/appointments/${id}/payment/receipt`;
+}
+
+export function verifyAppointmentPayment(id: string, action: "approve" | "reject", reason?: string) {
+  return apiFetch<{ appointment: Appointment }>(
+    `/appointments/${id}/payment/verify`,
+    { method: "POST", body: JSON.stringify({ action, reason }) },
     true
   );
 }

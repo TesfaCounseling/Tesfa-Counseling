@@ -126,8 +126,9 @@ export default function BookCounselorPage() {
           starts_at: selected.starts_at,
           duration_minutes: duration,
         });
+        router.push("/dashboard");
       } else {
-        await bookAppointment({
+        const booked = await bookAppointment({
           provider_id: providerId,
           starts_at: selected.starts_at,
           duration_minutes: duration,
@@ -136,8 +137,12 @@ export default function BookCounselorPage() {
           amount_cents: selectedTier.amount_cents,
           session_mode: sessionMode,
         });
+        if (booked.appointment.payment_required) {
+          router.push(`/appointments/${booked.appointment.id}/pay`);
+        } else {
+          router.push("/dashboard");
+        }
       }
-      router.push("/dashboard");
     } catch (err) {
       const message = err instanceof Error ? err.message : isReschedule ? "Reschedule failed" : "Booking failed";
       if (message.toLowerCase().includes("intake")) {

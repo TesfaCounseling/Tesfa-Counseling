@@ -246,6 +246,11 @@ export default function DashboardPage() {
       error={error}
       onCancel={handleCancel}
       onDismissScheduleAlert={handleDismissScheduleAlert}
+      onPaymentUpdated={() => {
+        listAppointments(true)
+          .then((data) => setAppointments(data.appointments))
+          .catch(() => {});
+      }}
     />
   );
 

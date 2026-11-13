@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from flask import Blueprint, jsonify, redirect, request
+from flask import Blueprint, jsonify, make_response, redirect, request
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from app.datetime_utils import format_in_timezone, to_iso_utc
@@ -12,6 +12,7 @@ from app.models import (
     AppointmentType,
     ApprovalStatus,
     AvailabilityRule,
+    PaymentStatus,
     PricingType,
     ScheduleChangeType,
     SessionMode,
@@ -25,6 +26,7 @@ from app.services.notifications import (
     notify_appointment_cancelled,
     notify_appointment_rescheduled,
 )
+from app.services.payment_instructions import generate_payment_reference, remittance_instructions
 from app.services.scheduling import assert_slot_available, generate_available_slots
 from app.services.video import (
     appointment_video_join_url,
@@ -33,9 +35,26 @@ from app.services.video import (
     video_join_blocked_html,
     video_join_window_status,
 )
-from app.utils import ensure_client_org_membership, get_provider_organization_id, log_audit
+from app.utils import ensure_client_org_membership, get_provider_organization_id, is_platform_admin, log_audit
 
 appointments_bp = Blueprint("appointments", __name__)
+
+MAX_RECEIPT_BYTES = 5 * 1024 * 1024
+ALLOWED_RECEIPT_MIME = {
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "image/gif",
+    "application/pdf",
+}
+DIASPORA_PAYMENT_METHODS = {
+    "remitly",
+    "taptap",
+    "wise",
+    "western_union",
+    "cbe",
+    "other",
+}
 
 
 def _get_user() -> User | None:
@@ -80,10 +99,27 @@ def _schedule_alert_for_user(appt: Appointment, user: User) -> dict | None:
     return _schedule_alert_for_client(appt, user) or _schedule_alert_for_provider(appt, user)
 
 
+def _can_manage_payment(user: User, appt: Appointment) -> bool:
+    return bool(user and (user.id == appt.provider_id or is_platform_admin(user)))
+
+
+def _unique_payment_reference() -> str:
+    for _ in range(8):
+        ref = generate_payment_reference()
+        if not Appointment.query.filter_by(payment_reference=ref).first():
+            return ref
+    return generate_payment_reference()
+
+
 def _appointment_to_dict(appt: Appointment, user: User | None = None) -> dict:
     now = datetime.now(timezone.utc)
     has_video = bool(appt.video_room_url)
-    can_join = has_video and can_join_video_session(appt.starts_at, appt.ends_at, now)
+    payment_clear = appt.payment_is_clear
+    can_join = (
+        has_video
+        and payment_clear
+        and can_join_video_session(appt.starts_at, appt.ends_at, now)
+    )
     payload = {
         "id": str(appt.id),
         "client_id": str(appt.client_id),
@@ -100,9 +136,18 @@ def _appointment_to_dict(appt: Appointment, user: User | None = None) -> dict:
         "pricing_type": appt.pricing_type.value,
         "amount_cents": appt.amount_cents,
         "currency": appt.currency,
+        "payment_status": appt.payment_status.value,
+        "payment_reference": appt.payment_reference,
+        "payment_method": appt.payment_method,
+        "payment_receipt_uploaded": appt.has_payment_receipt,
+        "payment_submitted_at": to_iso_utc(appt.payment_submitted_at) if appt.payment_submitted_at else None,
+        "payment_verified_at": to_iso_utc(appt.payment_verified_at) if appt.payment_verified_at else None,
+        "payment_rejection_reason": appt.payment_rejection_reason,
+        "payment_required": appt.payment_status
+        in (PaymentStatus.PENDING, PaymentStatus.SUBMITTED, PaymentStatus.REJECTED),
         "provider_name": appt.provider.full_name if appt.provider else None,
         "client_name": appt.client.full_name if appt.client else None,
-        "video_room_ready": has_video,
+        "video_room_ready": has_video and payment_clear,
         "video_room_url": appointment_video_join_url(appt.id) if can_join else None,
         "session_mode": appt.session_mode.value,
         "can_join_video": can_join,
@@ -204,6 +249,19 @@ def join_appointment_video(appointment_id):
     appt = db.session.get(Appointment, appointment_id)
     if not appt or not appt.video_room_url:
         return jsonify({"error": "Not Found", "message": "Video room not available"}), 404
+
+    if not appt.payment_is_clear:
+        from os import environ
+
+        app_url = environ.get("APP_URL", "https://www.tesfacounseling.com").rstrip("/")
+        html = (
+            "<!doctype html><html><body style='font-family:sans-serif;padding:2rem'>"
+            "<h1>Payment required</h1>"
+            "<p>This session is held until remittance payment is verified.</p>"
+            f"<p><a href='{app_url}/appointments/{appt.id}/pay'>Complete payment</a></p>"
+            "</body></html>"
+        )
+        return html, 403, {"Content-Type": "text/html; charset=utf-8"}
 
     status = video_join_window_status(appt.starts_at, appt.ends_at)
     if status != "open":
@@ -318,6 +376,7 @@ def book_appointment():
     except ValueError:
         return jsonify({"error": "ValidationError", "message": "Invalid session mode"}), 400
 
+    needs_payment = amount_cents > 0
     appointment = Appointment(
         organization_id=organization_id,
         client_id=user.id,
@@ -334,6 +393,8 @@ def book_appointment():
         amount_cents=amount_cents,
         currency=currency,
         session_mode=session_mode,
+        payment_status=PaymentStatus.PENDING if needs_payment else PaymentStatus.NOT_REQUIRED,
+        payment_reference=_unique_payment_reference() if needs_payment else None,
     )
     db.session.add(appointment)
     appointment.schedule_change_type = ScheduleChangeType.BOOKED
@@ -345,10 +406,148 @@ def book_appointment():
     db.session.flush()
 
     ensure_appointment_video_room(appointment)
-    notify_appointment_booked(appointment, user, provider)
+    # Confirmation emails fire after remittance is verified (or immediately if free).
+    if not needs_payment:
+        notify_appointment_booked(appointment, user, provider)
     db.session.commit()
 
     return jsonify({"appointment": _appointment_to_dict(appointment, user)}), 201
+
+
+@appointments_bp.route("/payment-instructions", methods=["GET"])
+@jwt_required()
+def get_payment_instructions():
+    return jsonify({"instructions": remittance_instructions()})
+
+
+@appointments_bp.route("/<uuid:appointment_id>/payment", methods=["GET"])
+@jwt_required()
+def get_appointment_payment(appointment_id):
+    user = _get_user()
+    appt = db.session.get(Appointment, appointment_id)
+    if not appt:
+        return jsonify({"error": "Not Found"}), 404
+    if user.id not in (appt.client_id, appt.provider_id) and not is_platform_admin(user):
+        return jsonify({"error": "Forbidden"}), 403
+    return jsonify(
+        {
+            "appointment": _appointment_to_dict(appt, user),
+            "instructions": remittance_instructions(),
+        }
+    )
+
+
+@appointments_bp.route("/<uuid:appointment_id>/payment/receipt", methods=["POST"])
+@jwt_required()
+def upload_payment_receipt(appointment_id):
+    user = _get_user()
+    appt = db.session.get(Appointment, appointment_id)
+    if not appt:
+        return jsonify({"error": "Not Found"}), 404
+    if appt.client_id != user.id:
+        return jsonify({"error": "Forbidden", "message": "Only the client can upload a receipt"}), 403
+    if appt.status == AppointmentStatus.CANCELLED:
+        return jsonify({"error": "Conflict", "message": "Cancelled sessions cannot accept payment"}), 409
+    if appt.payment_status in (PaymentStatus.VERIFIED, PaymentStatus.NOT_REQUIRED):
+        return jsonify({"error": "Conflict", "message": "Payment is already complete"}), 409
+    if appt.amount_cents <= 0:
+        return jsonify({"error": "Conflict", "message": "No payment is required for this session"}), 409
+
+    method = (request.form.get("payment_method") or "").strip().lower().replace(" ", "_")
+    if method not in DIASPORA_PAYMENT_METHODS:
+        return jsonify(
+            {
+                "error": "ValidationError",
+                "message": "Choose a payment method (Remitly, TapTap, Wise, Western Union, CBE, or Other)",
+            }
+        ), 400
+
+    upload = request.files.get("receipt")
+    if not upload or not upload.filename:
+        return jsonify({"error": "ValidationError", "message": "Receipt file is required"}), 400
+    mime_type = (upload.mimetype or "").split(";")[0].strip().lower()
+    if mime_type not in ALLOWED_RECEIPT_MIME:
+        return jsonify({"error": "ValidationError", "message": "Upload a JPG, PNG, WebP, GIF, or PDF receipt"}), 400
+    receipt_data = upload.read(MAX_RECEIPT_BYTES + 1)
+    if not receipt_data:
+        return jsonify({"error": "ValidationError", "message": "Receipt file is empty"}), 400
+    if len(receipt_data) > MAX_RECEIPT_BYTES:
+        return jsonify({"error": "ValidationError", "message": "Receipt must be 5MB or smaller"}), 400
+
+    if not appt.payment_reference:
+        appt.payment_reference = _unique_payment_reference()
+    appt.payment_method = method
+    appt.payment_receipt_filename = upload.filename[:255]
+    appt.payment_receipt_mime_type = mime_type
+    appt.payment_receipt_data = receipt_data
+    appt.payment_submitted_at = utcnow()
+    appt.payment_status = PaymentStatus.SUBMITTED
+    appt.payment_rejection_reason = None
+    log_audit("appointment.payment_receipt_uploaded", "appointment", str(appt.id), actor_id=user.id)
+    db.session.commit()
+    return jsonify({"appointment": _appointment_to_dict(appt, user)})
+
+
+@appointments_bp.route("/<uuid:appointment_id>/payment/receipt", methods=["GET"])
+@jwt_required()
+def get_payment_receipt(appointment_id):
+    user = _get_user()
+    appt = db.session.get(Appointment, appointment_id)
+    if not appt:
+        return jsonify({"error": "Not Found"}), 404
+    if user.id not in (appt.client_id, appt.provider_id) and not is_platform_admin(user):
+        return jsonify({"error": "Forbidden"}), 403
+    if not appt.has_payment_receipt:
+        return jsonify({"error": "Not Found", "message": "No receipt uploaded"}), 404
+    response = make_response(appt.payment_receipt_data)
+    response.headers["Content-Type"] = appt.payment_receipt_mime_type
+    filename = appt.payment_receipt_filename or "receipt"
+    response.headers["Content-Disposition"] = f'inline; filename="{filename}"'
+    return response
+
+
+@appointments_bp.route("/<uuid:appointment_id>/payment/verify", methods=["POST"])
+@jwt_required()
+def verify_payment(appointment_id):
+    user = _get_user()
+    appt = db.session.get(Appointment, appointment_id)
+    if not appt:
+        return jsonify({"error": "Not Found"}), 404
+    if not _can_manage_payment(user, appt):
+        return jsonify({"error": "Forbidden", "message": "Only the counselor or admin can verify payment"}), 403
+    if appt.payment_status not in (PaymentStatus.SUBMITTED, PaymentStatus.PENDING, PaymentStatus.REJECTED):
+        return jsonify({"error": "Conflict", "message": "This payment cannot be verified in its current state"}), 409
+
+    data = request.get_json(silent=True) or {}
+    action = (data.get("action") or "").strip().lower()
+    if action not in ("approve", "reject"):
+        return jsonify({"error": "ValidationError", "message": "action must be approve or reject"}), 400
+
+    if action == "reject":
+        reason = (data.get("reason") or "").strip()
+        if not reason:
+            return jsonify({"error": "ValidationError", "message": "Rejection reason is required"}), 400
+        appt.payment_status = PaymentStatus.REJECTED
+        appt.payment_rejection_reason = reason[:1000]
+        appt.payment_verified_at = None
+        appt.payment_verified_by_id = None
+        log_audit("appointment.payment_rejected", "appointment", str(appt.id), reason, actor_id=user.id)
+        db.session.commit()
+        return jsonify({"appointment": _appointment_to_dict(appt, user)})
+
+    if not appt.has_payment_receipt:
+        return jsonify({"error": "ValidationError", "message": "Client must upload a receipt before approval"}), 400
+
+    was_unverified = appt.payment_status != PaymentStatus.VERIFIED
+    appt.payment_status = PaymentStatus.VERIFIED
+    appt.payment_verified_at = utcnow()
+    appt.payment_verified_by_id = user.id
+    appt.payment_rejection_reason = None
+    log_audit("appointment.payment_verified", "appointment", str(appt.id), actor_id=user.id)
+    if was_unverified:
+        notify_appointment_booked(appt, appt.client, appt.provider)
+    db.session.commit()
+    return jsonify({"appointment": _appointment_to_dict(appt, user)})
 
 
 @appointments_bp.route("/<uuid:appointment_id>/cancel", methods=["POST"])

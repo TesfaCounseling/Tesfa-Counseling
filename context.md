@@ -257,7 +257,8 @@ Role-based tabs via `AdminDashboardPanel`:
 
 | Area | Feature | Status |
 |------|---------|--------|
-| 5 | Stripe payments (actual card charge) | Not started — prices recorded on appointment only |
+| 5 | Card/Stripe payments | Deferred — using remittance + receipt instead |
+| 5 | Diaspora remittance payment | **In progress** — pending → receipt upload → counselor verify; Telebirr later |
 | 4 | Secure messaging | Not started |
 | 3 | Full video UX (embedded room, waiting room) | Partial |
 | 2 | Production Telegram webhook | Stub only |
@@ -323,12 +324,15 @@ Removed: shared `counsel-connect` client bucket org (was a pilot shortcut).
 - Counselor sets price per session length (50 / 90 min) on **Manage schedule**
 - Stored as `amount_cents` in DB; UI shows **dollars** (e.g. $50 → 5000 cents)
 - Pricing types: standard, pro_bono, sliding_scale, trainee_rate
-- On book: price copied to `Appointment.amount_cents` — **no Stripe charge yet**
-- Client sees price on dashboard after booking
+- On book: price copied to appointment; if amount > 0 → `payment_status=pending` + `TESFA-XXXX` reference → `/appointments/:id/pay`
+- Client remits via Remitly/TapTap/Wise/WU/CBE, uploads receipt; counselor approves/rejects
+- Video join blocked until `payment_status=verified` (or `not_required`)
+- Env: `PAYMENT_ACCOUNT_NAME`, `PAYMENT_ACCOUNT_DETAILS`, `PAYMENT_ACCEPTED_METHODS`
+- Telebirr / local bank rails: later
 
-**Agreed direction (not built):**
-- **Counselor origin** → base rate + currency (counselor sets fee)
-- **Client origin** → currency display, sliding scale / pro bono eligibility — not auto-different prices without counselor consent
+**Agreed direction:**
+- Ethiopia receive account + diaspora remittance (not Stripe Connect for now)
+- Local Telebirr/banks after diaspora flow is stable
 
 ---
 

@@ -289,6 +289,14 @@ class PricingType(str, enum.Enum):
     TRAINEE_RATE = "trainee_rate"
 
 
+class PaymentStatus(str, enum.Enum):
+    NOT_REQUIRED = "not_required"
+    PENDING = "pending"
+    SUBMITTED = "submitted"
+    VERIFIED = "verified"
+    REJECTED = "rejected"
+
+
 class SessionMode(str, enum.Enum):
     VIDEO = "video"
     AUDIO_ONLY = "audio_only"
@@ -371,6 +379,22 @@ class Appointment(db.Model):
     )
     amount_cents: Mapped[int] = mapped_column(db.Integer, default=0, nullable=False)
     currency: Mapped[str] = mapped_column(db.String(8), default="USD", nullable=False)
+    payment_status: Mapped[PaymentStatus] = mapped_column(
+        Enum(PaymentStatus, values_callable=lambda x: [e.value for e in x], name="payment_status"),
+        default=PaymentStatus.VERIFIED,
+        nullable=False,
+    )
+    payment_reference: Mapped[str | None] = mapped_column(db.String(32), unique=True, index=True)
+    payment_method: Mapped[str | None] = mapped_column(db.String(64))
+    payment_receipt_filename: Mapped[str | None] = mapped_column(db.String(255))
+    payment_receipt_mime_type: Mapped[str | None] = mapped_column(db.String(64))
+    payment_receipt_data: Mapped[bytes | None] = mapped_column(db.LargeBinary)
+    payment_submitted_at: Mapped[datetime | None] = mapped_column(db.DateTime(timezone=True))
+    payment_verified_at: Mapped[datetime | None] = mapped_column(db.DateTime(timezone=True))
+    payment_verified_by_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), db.ForeignKey("users.id", ondelete="SET NULL")
+    )
+    payment_rejection_reason: Mapped[str | None] = mapped_column(db.Text)
     cancellation_reason: Mapped[str | None] = mapped_column(db.Text)
     cancelled_by_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), db.ForeignKey("users.id", ondelete="SET NULL")
@@ -403,7 +427,16 @@ class Appointment(db.Model):
     provider = relationship("User", foreign_keys=[provider_id])
     schedule_change_by = relationship("User", foreign_keys=[schedule_change_by_id])
     supervisor = relationship("User", foreign_keys=[supervisor_id])
+    payment_verified_by = relationship("User", foreign_keys=[payment_verified_by_id])
     clinical_note = relationship("ClinicalNote", back_populates="appointment", uselist=False)
+
+    @property
+    def payment_is_clear(self) -> bool:
+        return self.payment_status in (PaymentStatus.VERIFIED, PaymentStatus.NOT_REQUIRED)
+
+    @property
+    def has_payment_receipt(self) -> bool:
+        return bool(self.payment_receipt_mime_type and self.payment_receipt_data)
 
 
 class ClinicalNoteStatus(str, enum.Enum):

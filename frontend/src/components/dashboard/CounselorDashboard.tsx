@@ -2,8 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useLanguage } from "@/components/LanguageProvider";
 import type { Appointment, AuthUser, ProviderProfile } from "@/lib/api";
-import { getMyProviderProfile } from "@/lib/api";
+import {
+  getMyProviderProfile,
+  paymentReceiptUrl,
+  verifyAppointmentPayment,
+} from "@/lib/api";
 import { appointmentTimezoneLabel, formatAppointmentWhen, formatMoney } from "@/lib/format";
 import ClientScheduleAlerts from "@/components/dashboard/ClientScheduleAlerts";
 
@@ -14,6 +19,7 @@ type CounselorDashboardProps = {
   error: string;
   onCancel: (id: string) => void;
   onDismissScheduleAlert: (id: string) => void;
+  onPaymentUpdated?: () => void;
 };
 
 export default function CounselorDashboard({
@@ -23,8 +29,12 @@ export default function CounselorDashboard({
   error,
   onCancel,
   onDismissScheduleAlert,
+  onPaymentUpdated,
 }: CounselorDashboardProps) {
+  const { t } = useLanguage();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
+  const [paymentBusyId, setPaymentBusyId] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState("");
 
   useEffect(() => {
     if (user?.account_type !== "trainee") return;
@@ -34,6 +44,35 @@ export default function CounselorDashboard({
   }, [user?.account_type]);
 
   const providerAppointments = appointments.filter((appt) => appt.provider_id === user?.id);
+
+  async function openReceipt(id: string) {
+    const token = localStorage.getItem("access_token");
+    const res = await fetch(paymentReceiptUrl(id), {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) throw new Error(t("pay.loadError"));
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  async function handleVerify(id: string, action: "approve" | "reject") {
+    setPaymentError("");
+    let reason: string | undefined;
+    if (action === "reject") {
+      reason = window.prompt(t("pay.rejectReason")) || "";
+      if (!reason.trim()) return;
+    }
+    setPaymentBusyId(id);
+    try {
+      await verifyAppointmentPayment(id, action, reason);
+      onPaymentUpdated?.();
+    } catch (err) {
+      setPaymentError(err instanceof Error ? err.message : t("pay.uploadError"));
+    } finally {
+      setPaymentBusyId(null);
+    }
+  }
 
   return (
     <>
@@ -92,6 +131,7 @@ export default function CounselorDashboard({
 
       <section className="mt-10">
         <h2 className="text-lg font-bold text-ethio-ink">Upcoming sessions</h2>
+        {paymentError && <p className="mt-3 alert-error">{paymentError}</p>}
         {loadingSessions && <p className="mt-3 text-sm text-ethio-ink-muted">Loading sessions…</p>}
         {error && (
           <div className="mt-3 space-y-2">
@@ -115,7 +155,42 @@ export default function CounselorDashboard({
                 {appt.session_mode === "audio_only" && " · Audio"}
               </p>
               <p className="text-xs text-ethio-ink-muted">{formatMoney(appt.amount_cents, appt.currency)}</p>
+              {appt.payment_status && appt.payment_status !== "verified" && appt.payment_status !== "not_required" && (
+                <p className="mt-1 text-xs font-semibold text-ethio-green-dark">
+                  {t(`pay.status.${appt.payment_status}` as "pay.status.pending")}
+                  {appt.payment_reference ? ` · ${appt.payment_reference}` : ""}
+                </p>
+              )}
               <div className="mt-3 flex flex-wrap gap-3">
+                {appt.payment_status === "submitted" && (
+                  <>
+                    {appt.payment_receipt_uploaded && (
+                      <button
+                        type="button"
+                        className="text-sm font-semibold text-ethio-green-dark"
+                        onClick={() => openReceipt(appt.id).catch((err) => setPaymentError(err.message))}
+                      >
+                        {t("pay.viewReceipt")}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn-primary text-sm"
+                      disabled={paymentBusyId === appt.id}
+                      onClick={() => handleVerify(appt.id, "approve")}
+                    >
+                      {t("pay.approve")}
+                    </button>
+                    <button
+                      type="button"
+                      className="text-sm font-semibold text-ethio-red"
+                      disabled={paymentBusyId === appt.id}
+                      onClick={() => handleVerify(appt.id, "reject")}
+                    >
+                      {t("pay.reject")}
+                    </button>
+                  </>
+                )}
                 {appt.can_join_video && appt.video_room_url && (
                   <a
                     href={appt.video_room_url}

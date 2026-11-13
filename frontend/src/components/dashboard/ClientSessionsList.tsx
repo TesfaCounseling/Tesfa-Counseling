@@ -66,8 +66,18 @@ export default function ClientSessionsList({
             {appt.session_mode === "audio_only" && ` · ${t("dashboard.audio")}`}
           </p>
           <p className="text-xs text-ethio-ink-muted">{formatMoney(appt.amount_cents, appt.currency)}</p>
+          {appt.payment_status && appt.payment_status !== "verified" && appt.payment_status !== "not_required" && (
+            <p className="mt-1 text-xs font-semibold text-ethio-green-dark">
+              {t(`pay.status.${appt.payment_status}` as "pay.status.pending")}
+            </p>
+          )}
           {showActions && (
             <div className="mt-3 flex flex-wrap gap-3">
+              {appt.payment_required && (
+                <Link href={`/appointments/${appt.id}/pay`} className="btn-primary text-sm">
+                  {t("pay.completePayment")}
+                </Link>
+              )}
               {appt.can_join_video && appt.video_room_url && (
                 <a
                   href={appt.video_room_url}

@@ -20,6 +20,64 @@ def ensure_password_reset_schema() -> None:
         logger.warning("password_reset_tokens bootstrap skipped: %s", exc)
 
 
+def ensure_appointment_payment_schema() -> None:
+    """Add remittance payment columns when migration has not run yet."""
+    bind = db.engine
+    inspector = inspect(bind)
+    if "appointments" not in inspector.get_table_names():
+        return
+    columns = {col["name"] for col in inspector.get_columns("appointments")}
+    if "payment_status" in columns:
+        return
+
+    logger.warning("appointments payment columns missing — applying bootstrap SQL")
+    dialect = bind.dialect.name
+    statements: list[str] = []
+    if dialect == "postgresql":
+        statements.append(
+            """
+            DO $$ BEGIN
+                CREATE TYPE payment_status AS ENUM (
+                    'not_required', 'pending', 'submitted', 'verified', 'rejected'
+                );
+            EXCEPTION
+                WHEN duplicate_object THEN NULL;
+            END $$;
+            """
+        )
+        status_type = "payment_status"
+    else:
+        status_type = "VARCHAR(32)"
+
+    statements.extend(
+        [
+            f"ALTER TABLE appointments ADD COLUMN payment_status {status_type} NOT NULL DEFAULT 'verified'",
+            "ALTER TABLE appointments ADD COLUMN payment_reference VARCHAR(32)",
+            "ALTER TABLE appointments ADD COLUMN payment_method VARCHAR(64)",
+            "ALTER TABLE appointments ADD COLUMN payment_receipt_filename VARCHAR(255)",
+            "ALTER TABLE appointments ADD COLUMN payment_receipt_mime_type VARCHAR(64)",
+            "ALTER TABLE appointments ADD COLUMN payment_receipt_data BYTEA"
+            if dialect == "postgresql"
+            else "ALTER TABLE appointments ADD COLUMN payment_receipt_data BLOB",
+            "ALTER TABLE appointments ADD COLUMN payment_submitted_at TIMESTAMPTZ"
+            if dialect == "postgresql"
+            else "ALTER TABLE appointments ADD COLUMN payment_submitted_at DATETIME",
+            "ALTER TABLE appointments ADD COLUMN payment_verified_at TIMESTAMPTZ"
+            if dialect == "postgresql"
+            else "ALTER TABLE appointments ADD COLUMN payment_verified_at DATETIME",
+            "ALTER TABLE appointments ADD COLUMN payment_verified_by_id UUID REFERENCES users(id) ON DELETE SET NULL"
+            if dialect == "postgresql"
+            else "ALTER TABLE appointments ADD COLUMN payment_verified_by_id CHAR(36)",
+            "ALTER TABLE appointments ADD COLUMN payment_rejection_reason TEXT",
+            "CREATE UNIQUE INDEX IF NOT EXISTS ix_appointments_payment_reference ON appointments (payment_reference)",
+        ]
+    )
+    with bind.begin() as conn:
+        for statement in statements:
+            conn.execute(text(statement))
+    logger.info("appointments payment schema bootstrap complete")
+
+
 def ensure_testing_feedback_schema() -> None:
     if not beta_feedback_enabled():
         return
