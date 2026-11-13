@@ -231,7 +231,7 @@ const am: Record<keyof typeof en, string> = {
   "lang.amharic": "አማርኛ",
   "lang.choose": "ቋንቋ",
   "nav.home": "ቤት",
-  "nav.dashboard": "ዳሽቦርድ",
+  "nav.dashboard": "የእርሶ ገጽ",
   "nav.login": "ግባ",
   "nav.logout": "ውጡ",
   "nav.signedInAs": "የገቡት",
