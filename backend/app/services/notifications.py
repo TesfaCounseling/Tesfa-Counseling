@@ -123,8 +123,17 @@ def send_email_with_reason(
     host_l = smtp_host.lower()
 
     if not smtp_host and not brevo_api_key:
-        logger.info("Email stub → %s | %s | %s", to_address, subject, body.replace("\n", " "))
-        return True, "stubbed (no BREVO_API_KEY / SMTP_HOST)"
+        # Local/dev only: pretend success and log. Never stub in production.
+        flask_env = (os.environ.get("FLASK_ENV") or os.environ.get("ENV") or "").strip().lower()
+        allow_stub = flask_env in ("development", "dev", "test") or os.environ.get(
+            "EMAIL_STUB", ""
+        ).strip().lower() in ("1", "true", "yes")
+        if allow_stub:
+            logger.info("Email stub → %s | %s | %s", to_address, subject, body.replace("\n", " "))
+            return True, "stubbed (no BREVO_API_KEY / SMTP_HOST)"
+        reason = "Email not configured: set BREVO_API_KEY (and SMTP_FROM) on Render"
+        logger.error("Email send failed: %s", reason)
+        return False, reason
 
     # Prefer Brevo HTTPS API (more reliable on Render than SMTP).
     if brevo_api_key or "brevo" in host_l or "sendinblue" in host_l:

@@ -27,20 +27,22 @@ Code: `backend/app/services/notifications.py` + templates in `email_templates.py
 3. **Create an API key**
    - Brevo → **SMTP & API** → **API keys** → create key with transactional email permission.
    - Do **not** put an SMTP key in `BREVO_API_KEY` (SMTP keys ≠ API keys).
-4. **Set Render env** on `tesfa-counseling-api` (then restart/redeploy):
+4. **Set Render env** on `tesfa-counseling-api` (Environment → Add):
 
 | Key | Value |
 |-----|--------|
-| `BREVO_API_KEY` | Brevo API key |
-| `SMTP_FROM` | `noreply@tesfacounseling.com` (must be verified/authenticated) |
+| `BREVO_API_KEY` | Brevo API key (exact name — not `SMTP_PASSWORD`) |
+| `SMTP_FROM` | verified sender e.g. `info@tesfacounseling.com` |
 | `APP_URL` | `https://www.tesfacounseling.com` |
 | `APP_NAME` | `Tesfa Counseling` |
 
-5. Remove or leave unused SendGrid `SMTP_*` values; with `BREVO_API_KEY` set, Brevo wins.
-6. **Verify**
-   - `GET /api/v1/health` → `smtp_configured: true`, `brevo_api_key_set: true`
-   - Admin dashboard → Statistics → **Send test email** to a real inbox
-   - Or `POST /api/v1/auth/forgot-password` for a known account
+5. **Save** and wait for redeploy/restart. Confirm the variable appears on the service (typo’d names do not count).
+6. Clear old SendGrid `SMTP_HOST` if present (optional once Brevo works).
+7. **Verify**
+   - `GET /api/v1/health` → `brevo_api_key_set: true`, `smtp_configured: true`
+   - If `brevo_api_key_set` is false, the key is **not** on the running service — do not trust UI “email sent”
+   - Admin → Statistics → **Send test email**
+   - Forgot-password should 503 if mail is misconfigured (prod no longer stubs success)
 
 ## Agent workflow when mail is broken
 
