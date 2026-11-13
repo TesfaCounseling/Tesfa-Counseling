@@ -2,7 +2,7 @@
 
 > Living handoff doc. Update this file as work progresses so the next agent can continue without re-discovering decisions.
 >
-> **Last updated:** 2026-07-12 — client Schedule a session page; homepage/copy polish; Amharic counselor wording
+> **Last updated:** 2026-11-13 — diaspora remittance payment; forgot-password; Brevo email; signed-in profile chip; Amharic nav/copy
 
 ---
 
@@ -23,7 +23,8 @@
 | DB | SQLite (dev) / Postgres (prod) | Netlify Database → `DATABASE_URL` on Render |
 | Video | Daily.co | `DAILY_API_KEY` on Render (required for join URLs) |
 | Email | **Brevo** (preferred) | `BREVO_API_KEY` + `SMTP_FROM` on Render; free 300/day. Skill: `.cursor/skills/outbound-email`. SendGrid legacy only. |
-| Notifications | HTML email + Telegram stub + reminders CLI | Email live in prod when SMTP configured |
+| Notifications | HTML email + Telegram stub + reminders CLI | Email live in prod when `BREVO_API_KEY` (or SMTP) set |
+| Payments | Remittance + receipt (diaspora) | Ethiopia receive account; Telebirr/local later |
 
 **Workspace (canonical):** `C:\dev\tesfa-counseling` — full project on local disk. Open this folder in Cursor for development and Git.
 
@@ -58,8 +59,9 @@ Users only browse **:3000**. The frontend calls **:5050** via `NEXT_PUBLIC_API_U
 - [x] User roles: client, therapist, trainee, org_admin, platform_admin, supervisor
 - [x] Register flows: `/register/client`, `/register/counselor`, `/register/trainee`
 - [x] Login (supports `?next=/admin`), refresh, `/me` (includes `account_type`)
+- [x] **Forgot / reset password** — `/forgot-password`, `/reset-password`; `POST /auth/forgot-password`, `POST /auth/reset-password`; `PasswordResetToken` (hashed, 60 min, single-use); clear not-found vs sent messages
 - [x] Admin approval API + **full admin dashboard UI**
-- [x] Models: users, orgs, profiles, consent, audit
+- [x] Models: users, orgs, profiles, consent, audit, password reset tokens
 - [x] Seed scripts: `seed_admin.py`, `seed_demo_counselor.py`
 - [x] **Industry-standard org model** (see Organizations section below)
 
@@ -72,10 +74,11 @@ Users only browse **:3000**. The frontend calls **:5050** via `NEXT_PUBLIC_API_U
 - [x] **Provider profile edit** — `/provider/profile`, `GET/PATCH /providers/me`
 - [x] **Languages required** at registration for counselors/trainees
 - [x] Email notifications on book/cancel/reschedule — **HTML branded templates** + plain-text fallback (`email_templates.py`, `notifications.py`)
-- [x] SendGrid SMTP in production (`smtp.sendgrid.net`, user `apikey`, API key as password)
+- [x] **Brevo** transactional email in production (`BREVO_API_KEY` HTTPS API; skill `.cursor/skills/outbound-email`) — SendGrid retired after credit limit / SMTP drops
 - [x] Telegram notification stub on book/cancel
 - [x] Reminders CLI: `flask send-reminders`
 - [x] Session pricing UI in **dollars** (stored as cents in DB); shows current rates
+- [x] **Diaspora remittance payment** — book → `payment_status=pending` + `TESFA-XXXX` → `/appointments/:id/pay` → receipt upload → counselor approve/reject; video join gated until verified; migration `o2a3b4c5d6e7f8`
 
 ### Phase 3 — Video (production-ready)
 - [x] `video_room_name`, `video_room_url` on `Appointment` model
@@ -85,7 +88,7 @@ Users only browse **:3000**. The frontend calls **:5050** via `NEXT_PUBLIC_API_U
 - [x] Short join route: `GET /appointments/:id/video-join` — redirects to Daily when open; friendly HTML page if too early/closed
 - [x] Booking/reschedule emails say video opens 15 min before (no early clickable Daily link)
 - [x] Admin diagnostics: `GET /admin/daily-check`, `POST /admin/daily-test-room`, `POST /admin/backfill-video-rooms` (+ buttons in Statistics panel)
-- [x] Health check flags: `daily_api_key_set`, `smtp_configured`
+- [x] Health check flags: `daily_api_key_set`, `smtp_configured`, `brevo_api_key_set`, `smtp_from_set`
 - [x] `backend/scripts/test_daily.py` — run on Render shell to verify Daily + backfill
 - [ ] Embedded waiting room / in-app video UI — not done
 - [x] Requires `DAILY_API_KEY` on Render — without it, booking works but no join URL
@@ -186,7 +189,7 @@ Role-based tabs via `AdminDashboardPanel`:
 - [x] Default timezone **UTC** (display uses client/provider local where implemented)
 - [x] Blue theme in `frontend/src/app/globals.css` (Worku-inspired, user approved)
 - [x] Shared components: `PageHero`, `ProviderCard`, `SlotPicker`, `CounselorList`, `AuthShell`
-- [x] `SiteHeader` — shows Dashboard + Log out when logged in (even on admin/dashboard pages)
+- [x] `SiteHeader` — signed-in **face icon + name** chip, Dashboard/የእርሶ ገጽ, Log out; dashboard hero eyebrow shows full name
 - [x] Brand name from env: `frontend/src/lib/brand.ts` + `NEXT_PUBLIC_APP_NAME`
 - [x] Unified `card-vibrant` + `max-w-5xl` layout
 
@@ -197,7 +200,8 @@ Role-based tabs via `AdminDashboardPanel`:
 - [x] Postgres URL fix: `postgres://` → `postgresql://` in `config.py`
 - [x] `frontend/src/lib/apiBase.ts` — do not rewrite API URL to Netlify hostname on production
 - [x] **Custom domain** `www.tesfacounseling.com` on Netlify — add all origins to Render `CORS_ORIGINS` (include `http://` variants while SSL provisioning)
-- [x] **SendGrid** — domain auth on `tesfacounseling.com` (GoDaddy DNS); use API key for SMTP (not account password)
+- [x] **Brevo** — domain `tesfacounseling.com` authenticated (SPF + DKIM); `BREVO_API_KEY` + `SMTP_FROM` (e.g. `info@tesfacounseling.com`) on Render; skill `.cursor/skills/outbound-email`
+- [x] SendGrid DNS leftovers (`em6403`) optional to remove; do not use for new mail
 - [x] Migrations run on Render deploy; manual shell used once for enum fixes (`g7`, `h8` migrations)
 
 ### i18n (Amharic / English)
@@ -257,8 +261,8 @@ Role-based tabs via `AdminDashboardPanel`:
 
 | Area | Feature | Status |
 |------|---------|--------|
-| 5 | Card/Stripe payments | Deferred — using remittance + receipt instead |
-| 5 | Diaspora remittance payment | **In progress** — pending → receipt upload → counselor verify; Telebirr later |
+| 5 | Card/Stripe payments | Deferred — remittance + receipt instead |
+| 5 | Telebirr / local Ethiopia bank rails | Not started (diaspora remittance shipped) |
 | 4 | Secure messaging | Not started |
 | 3 | Full video UX (embedded room, waiting room) | Partial |
 | 2 | Production Telegram webhook | Stub only |
@@ -350,7 +354,7 @@ Note: Tailwind classes use prefix `ethio-*` (legacy) — maps to **blue** brand,
 | Card surface | `#F5F9FC` |
 
 **Key components:**
-- `frontend/src/components/SiteHeader.tsx` — auth-aware header, `clearAuthSession()`
+- `frontend/src/components/SiteHeader.tsx` — auth-aware header, profile chip (`getMe`), `clearAuthSession()`
 - `frontend/src/components/BrandLogo.tsx` — uses `NEXT_PUBLIC_APP_NAME`
 - `frontend/src/components/PageHero.tsx`
 - `frontend/src/components/ProviderCard.tsx`
@@ -370,12 +374,16 @@ Note: Tailwind classes use prefix `ethio-*` (legacy) — maps to **blue** brand,
 | Route | Type | Notes |
 |-------|------|--------|
 | `/` | Server | Home, mission card, Who we serve, feature cards |
-| `/login` | Client | Default redirect `?next=/dashboard` |
+| `/login` | Client | Default redirect `?next=/dashboard`; **Forgot password?** link |
+| `/forgot-password` | Client | Request reset email (reveals if account exists) |
+| `/reset-password` | Client | Set new password from email token |
 | `/register`, `/register/client`, `/counselor`, `/trainee` | Client | Languages required for providers |
 | `/counselors` | Server | Provider list + filters |
-| `/counselors/[id]/book` | Client | Book or `?reschedule=:id` |
+| `/counselors/[id]/book` | Client | Book or `?reschedule=:id`; paid book → redirect to pay page |
 | `/counselors/[id]/intake` | Client | Trainee intake before booking |
-| `/dashboard` | Client | **Main hub after login** — role-based: admin tabs, counseling, supervision, client sessions |
+| `/appointments/[id]/pay` | Client | Remittance instructions + receipt upload |
+| `/schedule` | Client | Booking-first client schedule |
+| `/dashboard` | Client | **Main hub after login** — role-based; client **Complete payment**; counselor approve/reject receipts |
 | `/admin` | Client | Redirects to `/dashboard` if admin access |
 | `/supervision` | Client | Cosign queue — trainee **session notes** only |
 | `/supervision/intakes` | Client | Supervisor view of client intake forms for assigned trainees |
@@ -405,24 +413,25 @@ backend/
 │   ├── config.py              # postgres:// fix, local SQLite path, DAILY_API_KEY, SMTP
 │   ├── datetime_utils.py      # UTC normalization for API + display
 │   ├── db_utils.py            # SQLite WAL, busy timeout, copy helper
-│   ├── db_bootstrap.py        # Postgres: ensure testing_feedback table on startup
+│   ├── db_bootstrap.py        # password_reset_tokens, appointment payment cols, testing_feedback
 │   ├── routes/
-│   │   ├── auth.py
+│   │   ├── auth.py              # + forgot/reset password
 │   │   ├── admin.py           # overview, users, roles grant/revoke, providers, audit, orgs, approvals
 │   │   ├── clinical_notes.py  # SOAP notes, supervision queue, cosign
 │   │   ├── intake.py          # TraineeIntake CRUD
 │   │   ├── therapists.py      # Public GET /therapists
 │   │   ├── providers.py       # GET/PATCH /providers/me
 │   │   ├── availability.py
-│   │   ├── appointments.py    # book, cancel, reschedule, get, slots, video-join redirect
+│   │   ├── appointments.py    # book, cancel, reschedule, pay/receipt/verify, slots, video-join
 │   │   ├── feedback.py          # Client feedback (ongoing)
 │   │   ├── testing_feedback.py  # UAT page feedback (testing phase)
-│   │   ├── health.py            # daily_api_key_set, smtp_configured, beta_feedback_enabled, testing_feedback_db_ready
+│   │   ├── health.py            # daily/brevo/smtp flags, beta_feedback, testing_feedback_db_ready
 │   │   └── telegram.py
 │   ├── services/
 │   │   ├── scheduling.py
-│   │   ├── notifications.py   # HTML email + telegram
-│   │   ├── email_templates.py # branded HTML for session emails
+│   │   ├── notifications.py   # Brevo API / SendGrid API / SMTP + telegram
+│   │   ├── email_templates.py # branded HTML incl. password reset
+│   │   ├── payment_instructions.py  # remittance env-driven copy
 │   │   └── video.py           # Daily.co rooms, join window, diagnostics
 │   └── tasks/reminders.py
 ├── migrations/versions/
@@ -438,7 +447,9 @@ backend/
 │   ├── j9e0f1a2b3c4_testing_feedback_guest.py
 │   ├── k0e1f2a3b4c5_testing_feedback_repair.py
 │   ├── l0e1f2a3b4c5d6_testing_feedback_postgres_repair.py
-│   └── m0e1f2a3b4c5d6_testing_feedback_page_context.py   # head
+│   ├── m0e1f2a3b4c5d6_testing_feedback_page_context.py
+│   ├── n1f2a3b4c5d6e7_password_reset_tokens.py
+│   └── o2a3b4c5d6e7f8_appointment_payment_fields.py   # head
 ├── migrate_client_org_links.py
 ├── seed_admin.py
 ├── seed_demo_counselor.py
@@ -453,16 +464,22 @@ backend/
 | GET | `/therapists` | No | Approved providers |
 | GET/PATCH | `/providers/me` | JWT | Provider profile edit |
 | GET/POST | `/availability/rules`, `/pricing` | JWT | Schedule + rates |
-| GET/POST | `/appointments` | JWT | List / book |
+| POST | `/auth/forgot-password` | No | 404 if email unknown; sends Brevo reset mail |
+| POST | `/auth/reset-password` | No | Body: `token`, `password` |
+| GET/POST | `/appointments` | JWT | List / book (paid → pending payment) |
 | GET | `/appointments/:id` | JWT | Single appointment |
+| GET | `/appointments/:id/payment` | JWT | Appointment + remittance instructions |
+| POST | `/appointments/:id/payment/receipt` | JWT client | Multipart receipt + method |
+| GET | `/appointments/:id/payment/receipt` | JWT | View receipt |
+| POST | `/appointments/:id/payment/verify` | JWT provider/admin | `approve` / `reject` |
 | POST | `/appointments/:id/cancel` | JWT | |
 | POST | `/appointments/:id/reschedule` | JWT | Body: `starts_at`, `duration_minutes` |
-| GET | `/appointments/:id/video-join` | No | Redirect to Daily when join window open |
+| GET | `/appointments/:id/video-join` | No | Daily when open **and** payment verified |
 | GET | `/appointments/providers/:id/slots` | JWT | |
 | GET | `/admin/daily-check` | JWT + platform_admin | Verify Daily API key |
 | POST | `/admin/daily-test-room` | JWT + platform_admin | Create test Daily room |
 | POST | `/admin/backfill-video-rooms` | JWT + platform_admin | Create missing video rooms |
-| POST | `/admin/test-email` | JWT + platform_admin | Send SMTP test email |
+| POST | `/admin/test-email` | JWT + platform_admin | Send Brevo/SMTP test email |
 | GET | `/admin/overview`, `/users`, `/providers`, `/audit-logs`, `/organizations` | JWT + admin role | |
 | POST | `/admin/therapists/:id/approve|reject` | JWT + admin | |
 | POST | `/admin/trainees/:id/approve|reject` | JWT + admin | |
@@ -522,13 +539,20 @@ CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
 SECRET_KEY=...
 JWT_SECRET_KEY=...
 DAILY_API_KEY=                    # required in prod for video
-SMTP_HOST=smtp.sendgrid.net         # SendGrid in prod
+BREVO_API_KEY=                    # preferred — Brevo transactional API key
+SMTP_FROM=info@tesfacounseling.com  # verified Brevo sender
+# Optional SMTP fallback (unused when BREVO_API_KEY set)
+SMTP_HOST=
 SMTP_PORT=587
-SMTP_USER=apikey                    # literal string "apikey" for SendGrid
-SMTP_PASSWORD=                      # SendGrid API key (SG....)
-SMTP_FROM=noreply@tesfacounseling.com
+SMTP_USER=
+SMTP_PASSWORD=
 APP_URL=https://www.tesfacounseling.com
+APP_NAME=Tesfa Counseling
 API_PUBLIC_URL=https://tesfa-counseling.onrender.com/api/v1
+PAYMENT_ACCOUNT_NAME=Tesfa Counseling
+PAYMENT_ACCOUNT_DETAILS=...         # Ethiopia bank / remittance receive details (shown on pay page)
+PAYMENT_ACCEPTED_METHODS=Remitly, TapTap Send, Wise, Western Union, CBE
+PAYMENT_INSTRUCTIONS_NOTES=...
 BETA_FEEDBACK_ENABLED=true          # set false after UAT; on by default if unset
 ADMIN_EMAIL=admin@tesfacounseling.local
 ADMIN_PASSWORD=admin-change-me
@@ -553,7 +577,7 @@ NEXT_PUBLIC_BETA_FEEDBACK=true       # show Give Us Your Feedback widget
 | API (Render) | `https://tesfa-counseling.onrender.com` |
 
 See **`DEPLOY.md`**. Summary:
-1. Render: API from `render.yaml`, set `DATABASE_URL`, `CORS_ORIGINS`, `DAILY_API_KEY`, `SMTP_*`, `BETA_FEEDBACK_ENABLED`, secrets
+1. Render: API from `render.yaml`, set `DATABASE_URL`, `CORS_ORIGINS`, `DAILY_API_KEY`, `BREVO_API_KEY`, `SMTP_FROM`, `PAYMENT_*`, `BETA_FEEDBACK_ENABLED`, secrets
 2. Netlify: frontend; `NEXT_PUBLIC_API_URL=https://tesfa-counseling.onrender.com/api/v1`; `NEXT_PUBLIC_BETA_FEEDBACK` in `netlify.toml`
 3. Run once: `python seed_admin.py`, `python migrate_client_org_links.py`
 4. Migrations run on deploy (`preDeployCommand`) **and** at API start (`flask db upgrade && gunicorn` in `render.yaml`)
@@ -561,7 +585,8 @@ See **`DEPLOY.md`**. Summary:
    `https://www.tesfacounseling.com,https://tesfacounseling.com,https://tesfa-counseling.netlify.app`
 6. After env var changes on Render, **Restart service** — saving env alone does not reload workers
 7. **Netlify “Canceled”** on backend-only pushes is normal (no frontend file changes) — not a failure
-8. Verify feedback DB: `GET /api/v1/health` → `testing_feedback_db_ready: true`
+8. Verify: `GET /api/v1/health` → `testing_feedback_db_ready`, `brevo_api_key_set`, `smtp_configured`
+9. **Run `npm run build` locally** before frontend pushes that touch `api.ts` / new routes — Netlify fails hard on TS/duplicate export errors
 
 ---
 
@@ -577,9 +602,9 @@ See **`DEPLOY.md`**. Summary:
 8. **Schedule "Add hours"** — fixed React async form reset bug (capture form ref before `await`).
 9. **Language filter** only shows languages from **approved** providers with `languages` field populated.
 10. **Video join** — needs `DAILY_API_KEY` on Render; window is 15 min before to 30 min after session; `/video-join` enforces same window
-11. **SendGrid SMTP** — `SMTP_USER` must be `apikey`, not your SendGrid login email; domain must be authenticated in SendGrid
+11. **Brevo email** — set `BREVO_API_KEY` (API key, not SMTP key) + verified `SMTP_FROM`; health `brevo_api_key_set`; prod never stubs success without a provider
 12. **Custom domain CORS** — registration/API fails with “Cannot reach the API” if `www.tesfacounseling.com` not in `CORS_ORIGINS`
-13. **Booking emails** — sent at book time only; rebook or use admin test email to verify SMTP after config changes
+13. **Booking emails** — paid sessions: confirmation email after payment **verified**; free/`not_required` still notify on book; admin test-email for Brevo checks
 14. **Tailwind `@apply group`** — not allowed in `globals.css`; add `group` class on the React element instead
 15. **Remember to start Flask** when testing backend changes (user rule)
 16. **Supervisor intakes** — use `/supervision/intakes`, not the cosign queue on `/supervision`
@@ -590,6 +615,9 @@ See **`DEPLOY.md`**. Summary:
 21. **Wire more page context** — book flow steps etc. need `FeedbackPageLocationSetter` if testers need finer labels
 22. **No formal assigned counselor** — “your counselor” on `/schedule` = most recent provider(s) from appointments
 23. **SQLite schedule_change_type** — legacy rows may store `BOOKED`/`RESCHEDULED` (names); model expects `booked`/`rescheduled` — `normalize_sqlite_schedule_change_types()` on API boot
+24. **Payment UI** — only on **new** paid bookings after deploy; older appointments defaulted `payment_status=verified` (no Complete payment button)
+25. **Remittance env** — without `PAYMENT_ACCOUNT_DETAILS` on Render, pay page shows placeholder text
+26. **Netlify build** — duplicate exports / bad TranslationKey types fail deploy; fix and push; retry failed deploy on latest commit
 
 ---
 
@@ -620,7 +648,9 @@ See **`DEPLOY.md`**. Summary:
 | Production login/admin 500 | Postgres migrations + enum `values_callable` fixes (feedback, schedule_change_type) |
 | Netlify API calls hit wrong host | `apiBase.ts` — no LAN rewrite on production domains |
 | No video link on dashboard | `DAILY_API_KEY` missing on Render; backfill on upcoming appointments list |
-| SendGrid no emails | SMTP env vars + restart; API key not account password |
+| SendGrid no emails / credits exceeded | Switched to Brevo; set `BREVO_API_KEY` + restart |
+| Forgot-password success but no inbox | Was stubbing without provider; now requires Brevo; check `brevo_api_key_set` |
+| Netlify payment deploy 404 | Build failed on duplicate `getAppointment`; fixed `064953c` |
 | Custom domain register fails | Add domain to `CORS_ORIGINS` on Render |
 | Long Daily URL in email | Short `/video-join` link; HTML shows “Video room” text |
 | Video link works before session | Join window enforced on API, dashboard, and `/video-join` |
@@ -647,16 +677,18 @@ See **`DEPLOY.md`**. Summary:
 ## Demo scripts
 
 ### Client happy path
-1. Register/login as **client**
-2. **Find a counselor** → filter by language → **View availability**
-3. Book slot → **Dashboard** shows session + price
-4. **Reschedule** or **Cancel** from dashboard
+1. Register/login as **client** (header shows face icon + name when signed in)
+2. **Find a counselor** / **አማካሪዎን ይምረጡ** → filter by language → **View availability**
+3. Book slot → if paid, **Pay for your session** (`TESFA-XXXX` + remittance + receipt)
+4. After counselor verifies → dashboard shows confirmed session; video join when window opens
+5. **My schedule** (`/schedule`) to book again with past counselors
+6. Forgot password → email link → reset (needs Brevo)
 
 ### Counselor happy path
 1. Register as counselor (languages required) → admin approves
 2. **Manage schedule** — add weekly hours, set pricing ($50 for 50 min)
 3. **Edit profile** — bio, specialties, languages
-4. See booked sessions on dashboard
+4. Dashboard: upcoming sessions; **View receipt / Approve / Reject** when client submitted payment
 
 ### Admin happy path
 1. Login `admin@tesfacounseling.local` → **`/dashboard`** (admin tabs shown immediately)
@@ -674,14 +706,15 @@ See **`DEPLOY.md`**. Summary:
 
 ## Suggested next work (priority order)
 
-1. **Custom domain SSL** — finish Netlify certificate; force HTTPS; trim `http://` from CORS when done
-2. **Scheduled email reminders** — cron on Render for 24h/1h before session (CLI exists; Telegram only today)
-3. **Stripe** — charge card at booking using stored `amount_cents`
+1. **Fill production `PAYMENT_*` env** — real Ethiopia account details on pay page
+2. **Telebirr / local bank** payment methods (after diaspora remittance is stable)
+3. **Scheduled email reminders** — cron on Render for 24h/1h before session (CLI exists; Telegram only today)
 4. **Multi-currency** — counselor picks currency; client sees converted display
 5. **Sliding scale UI** — client selects tier at booking if counselor allows
 6. **Full video UX** — embedded Daily room, waiting room
 7. **`GET /therapists/:id`** — cleaner book page load
 8. **org_admin** — re-enable with per-clinic scoping if client wants multi-practice
+9. Card/Stripe — only if a non-Ethiopia receiving entity is added later
 
 ---
 
@@ -696,6 +729,10 @@ See **`DEPLOY.md`**. Summary:
 | Video | `backend/app/services/video.py` |
 | Email templates | `backend/app/services/email_templates.py` |
 | Notifications | `backend/app/services/notifications.py` |
+| Payment instructions | `backend/app/services/payment_instructions.py` |
+| Outbound email skill | `.cursor/skills/outbound-email/SKILL.md` |
+| Pay page | `frontend/src/app/appointments/[id]/pay/page.tsx` |
+| Forgot / reset password | `frontend/src/app/forgot-password`, `reset-password` |
 | i18n | `frontend/src/lib/i18n.ts` |
 | Org helpers | `backend/app/utils.py` |
 | Models | `backend/app/models.py` |
@@ -895,6 +932,37 @@ See **`DEPLOY.md`**. Summary:
 
 **Git**
 - Pushed to `main` (this session)
+
+### 2026-11-12 / 2026-11-13 — Auth reset, Brevo, remittance payment, profile UX
+
+**Forgot password**
+- Full flow: login link → `/forgot-password` → Brevo email → `/reset-password?token=`
+- API: `POST /auth/forgot-password` (404 if unknown email), `POST /auth/reset-password`
+- Model `PasswordResetToken`; migration `n1f2a3b4c5d6e7`; bootstrap create table
+
+**Email provider**
+- Switched SendGrid → **Brevo** HTTPS API (`BREVO_API_KEY`); domain SPF/DKIM on GoDaddy
+- Prod no longer stubs “email sent” when no provider configured
+- Skill: `.cursor/skills/outbound-email`
+
+**Diaspora remittance payment**
+- `PaymentStatus` on appointments; reference `TESFA-XXXX`; receipt blob upload
+- Client pay page; counselor approve/reject on dashboard; video join gated until verified
+- Confirmation emails after verify (not at unpaid book)
+- Env: `PAYMENT_ACCOUNT_NAME`, `PAYMENT_ACCOUNT_DETAILS`, `PAYMENT_ACCEPTED_METHODS`
+- Telebirr/local rails deferred
+- Migration `o2a3b4c5d6e7f8` + bootstrap columns
+
+**UX / i18n**
+- Header: face icon + signed-in name; dashboard eyebrow = full name
+- Amharic: dashboard title/nav **የእርሶ ገጽ**; find counselor **አማካሪዎን ይምረጡ**; logout **ውጡ**
+
+**Deploy notes**
+- Netlify initially failed on duplicate `getAppointment` — fixed `064953c`
+- Existing appointments keep `payment_status=verified`; only **new** paid bookings show Complete payment
+
+**Git**
+- Commits through `63f3d0b` on `main` (profile/Amharic); payment `c4d1fc1` + build fix `064953c`
 
 ---
 
