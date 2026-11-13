@@ -24,15 +24,13 @@ function HomeIcon({ className = "h-5 w-5" }: { className?: string }) {
   );
 }
 
-function profileInitials(user: AuthUser): string {
-  const first = (user.first_name || "").trim();
-  const last = (user.last_name || "").trim();
-  if (first && last) return `${first[0]}${last[0]}`.toUpperCase();
-  if (user.full_name?.trim()) {
-    const parts = user.full_name.trim().split(/\s+/);
-    return ((parts[0]?.[0] || "") + (parts[1]?.[0] || "")).toUpperCase() || "?";
-  }
-  return (user.email?.[0] || "?").toUpperCase();
+function ProfileFaceIcon({ className = "h-4 w-4" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M5 19.5c1.6-3.2 4.1-4.8 7-4.8s5.4 1.6 7 4.8" strokeLinecap="round" />
+    </svg>
+  );
 }
 
 export function isLoggedIn(): boolean {
@@ -115,10 +113,10 @@ export default function SiteHeader({ showAuth = true, user: userProp = null }: S
                       aria-label={`${t("nav.signedInAs")} ${user.full_name || user.email}`}
                     >
                       <span
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ethio-gradient text-xs font-bold text-white"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-ethio-gradient text-white"
                         aria-hidden
                       >
-                        {profileInitials(user)}
+                        <ProfileFaceIcon />
                       </span>
                       <span className="truncate">{displayName || user.email}</span>
                     </Link>
