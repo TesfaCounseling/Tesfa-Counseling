@@ -7,10 +7,13 @@ import AdminDashboardPanel from "@/components/admin/AdminDashboardPanel";
 import AccountTabs, { type AccountTab } from "@/components/dashboard/AccountTabs";
 import ClientFeedbackForm from "@/components/dashboard/ClientFeedbackForm";
 import ClientScheduleAlerts from "@/components/dashboard/ClientScheduleAlerts";
+import ClientPaymentStatusBanner from "@/components/dashboard/ClientPaymentStatusBanner";
 import ClientSessionsList from "@/components/dashboard/ClientSessionsList";
 import CounselorDashboard from "@/components/dashboard/CounselorDashboard";
+import CounselorPaymentActionBanner from "@/components/dashboard/CounselorPaymentActionBanner";
 import DashboardTabs from "@/components/dashboard/DashboardTabs";
 import SupervisionDashboard from "@/components/dashboard/SupervisionDashboard";
+import { usePaymentVerification } from "@/components/dashboard/usePaymentVerification";
 import { syncLanguageFromProfile, useLanguage } from "@/components/LanguageProvider";
 import SiteHeader from "@/components/SiteHeader";
 import {
@@ -52,6 +55,16 @@ export default function DashboardPage() {
   const [pendingCount, setPendingCount] = useState(0);
   const [loadingSupervision, setLoadingSupervision] = useState(false);
   const [supervisionError, setSupervisionError] = useState("");
+
+  const {
+    paymentBusyId,
+    paymentError,
+    setPaymentError,
+    openReceipt,
+    handleVerify,
+  } = usePaymentVerification((updated) => {
+    setAppointments((prev) => prev.map((appt) => (appt.id === updated.id ? { ...appt, ...updated } : appt)));
+  });
 
   const provider = userLoaded && isCounselorProvider(user);
   const supervisor = userLoaded && isSupervisor(user);
@@ -246,11 +259,11 @@ export default function DashboardPage() {
       error={error}
       onCancel={handleCancel}
       onDismissScheduleAlert={handleDismissScheduleAlert}
-      onPaymentUpdated={() => {
-        listAppointments(true)
-          .then((data) => setAppointments(data.appointments))
-          .catch(() => {});
-      }}
+      paymentBusyId={paymentBusyId}
+      paymentError={paymentError}
+      onApprovePayment={(id) => handleVerify(id, "approve")}
+      onRejectPayment={(id) => handleVerify(id, "reject")}
+      onOpenReceipt={(id) => openReceipt(id).catch((err) => setPaymentError(err.message))}
     />
   );
 
@@ -267,6 +280,21 @@ export default function DashboardPage() {
   return (
     <div className="page-shell">
       <SiteHeader showAuth={false} user={user} />
+
+      {provider && (
+        <CounselorPaymentActionBanner
+          appointments={appointments}
+          providerId={user?.id}
+          paymentBusyId={paymentBusyId}
+          onApprove={(id) => handleVerify(id, "approve")}
+          onReject={(id) => handleVerify(id, "reject")}
+          onOpenReceipt={(id) => openReceipt(id).catch((err) => setPaymentError(err.message))}
+          paymentError={paymentError}
+        />
+      )}
+      {!platformAdmin && !staffAdmin && !provider && !supervisor && (
+        <ClientPaymentStatusBanner appointments={appointments} clientId={user?.id} />
+      )}
 
       <PageHero
         eyebrow={user?.full_name || user?.email || t("dashboard.account")}

@@ -2,7 +2,7 @@
 
 > Living handoff doc. Update this file as work progresses so the next agent can continue without re-discovering decisions.
 >
-> **Last updated:** 2026-11-17 — receipt uploads store TESFA-XXXXXX in filename; notes stay empty/optional
+> **Last updated:** 2026-11-17 — payment action banners on counselor/client dashboards
 
 ---
 
@@ -1034,6 +1034,12 @@ See **`DEPLOY.md`**. Summary:
 - Counselor approve/payment record shows the reference next to **View receipt** (plus stored filename)
 - Existing counselor session list can filter by payment reference (`GET /appointments?q=`; dashboard search box). No separate admin payments search exists
 - Tests: filename contains reference, collision suffix, `q` filter, client note still saved separately
+
+### 2026-11-17 — Dashboard payment action banners
+
+- Counselor: sticky high-contrast top banner when any booking is `submitted` — “Action needed: N payment(s) awaiting your verification”; lists TESFA ref, client, counselor-local time, receipt, Approve/Reject (shared spinner). Hides after approve/reject via local appointment update (no full reload)
+- Client: same-style top banner — “Upload your payment receipt” (link to pay page) for pending/rejected; “Awaiting counselor verification” after upload. Hidden when none pending
+- No dedicated admin payments inbox; counselor session list still has reference search
 
 ---
 

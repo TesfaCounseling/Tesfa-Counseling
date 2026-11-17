@@ -237,3 +237,48 @@ def test_list_appointments_filter_by_payment_reference(client, app):
 
     miss = client.get("/api/v1/appointments?q=TESFA-NOPE", headers=headers)
     assert miss.get_json()["appointments"] == []
+
+
+def test_dashboard_alert_payload_submitted_then_cleared_on_approve(client, app):
+    therapist = _register(client, "therapist")
+    client_user = _register(client, "client", first_name="Maya", last_name="Client")
+    reference = f"TESFA-{uuid.uuid4().hex[:6].upper()}"
+    appt_id = _seed_paid_appointment(
+        app, client_user["user"]["id"], therapist["user"]["id"], reference
+    )
+    client_headers = {"Authorization": f"Bearer {client_user['access_token']}"}
+    provider_headers = {"Authorization": f"Bearer {therapist['access_token']}"}
+
+    before = client.get(f"/api/v1/appointments/{appt_id}", headers=client_headers)
+    assert before.status_code == 200
+    pending = before.get_json()["appointment"]
+    assert pending["payment_status"] == "pending"
+    assert pending["payment_required"] is True
+    assert pending["payment_reference"] == reference
+
+    uploaded = _upload(client, appt_id, client_user["access_token"])
+    assert uploaded.status_code == 200
+    after_upload = uploaded.get_json()["appointment"]
+    assert after_upload["payment_status"] == "submitted"
+    assert after_upload["payment_required"] is False
+
+    listed = client.get("/api/v1/appointments", headers=provider_headers)
+    match = next(a for a in listed.get_json()["appointments"] if a["id"] == appt_id)
+    assert match["payment_status"] == "submitted"
+    assert match["payment_reference"] == reference
+    assert match["client_name"] == "Maya Client"
+    assert match["payment_receipt_uploaded"] is True
+    assert match["provider_local_display"]
+
+    approved = client.post(
+        f"/api/v1/appointments/{appt_id}/payment/verify",
+        json={"action": "approve"},
+        headers=provider_headers,
+    )
+    assert approved.status_code == 200
+    assert approved.get_json()["appointment"]["payment_status"] == "verified"
+
+    listed_after = client.get("/api/v1/appointments", headers=provider_headers)
+    match_after = next(a for a in listed_after.get_json()["appointments"] if a["id"] == appt_id)
+    assert match_after["payment_status"] == "verified"
+    assert match_after["payment_required"] is False

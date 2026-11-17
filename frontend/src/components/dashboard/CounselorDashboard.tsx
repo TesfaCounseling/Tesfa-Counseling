@@ -1,14 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/components/LanguageProvider";
 import type { Appointment, AuthUser, ProviderProfile } from "@/lib/api";
-import {
-  getMyProviderProfile,
-  paymentReceiptUrl,
-  verifyAppointmentPayment,
-} from "@/lib/api";
+import { getMyProviderProfile } from "@/lib/api";
 import {
   appointmentTimezoneLabel,
   formatAppointmentWhen,
@@ -16,6 +12,7 @@ import {
   formatPaymentMethod,
 } from "@/lib/format";
 import ClientScheduleAlerts from "@/components/dashboard/ClientScheduleAlerts";
+import PaymentVerifyButtons from "@/components/dashboard/PaymentVerifyButtons";
 
 type CounselorDashboardProps = {
   user: AuthUser | null;
@@ -24,7 +21,11 @@ type CounselorDashboardProps = {
   error: string;
   onCancel: (id: string) => void;
   onDismissScheduleAlert: (id: string) => void;
-  onPaymentUpdated?: () => void;
+  paymentBusyId: string | null;
+  paymentError: string;
+  onApprovePayment: (id: string) => void;
+  onRejectPayment: (id: string) => void;
+  onOpenReceipt: (id: string) => void;
 };
 
 export default function CounselorDashboard({
@@ -34,13 +35,14 @@ export default function CounselorDashboard({
   error,
   onCancel,
   onDismissScheduleAlert,
-  onPaymentUpdated,
+  paymentBusyId,
+  paymentError,
+  onApprovePayment,
+  onRejectPayment,
+  onOpenReceipt,
 }: CounselorDashboardProps) {
   const { t } = useLanguage();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
-  const [paymentBusyId, setPaymentBusyId] = useState<string | null>(null);
-  const paymentBusyRef = useRef(false);
-  const [paymentError, setPaymentError] = useState("");
   const [referenceQuery, setReferenceQuery] = useState("");
 
   useEffect(() => {
@@ -69,38 +71,6 @@ export default function CounselorDashboard({
         (appt.payment_reference || "").toLowerCase().includes(referenceNeedle)
       )
     : allProviderAppointments;
-
-  async function openReceipt(id: string) {
-    const token = localStorage.getItem("access_token");
-    const res = await fetch(paymentReceiptUrl(id), {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
-    if (!res.ok) throw new Error(t("pay.loadError"));
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    window.open(url, "_blank", "noopener,noreferrer");
-  }
-
-  async function handleVerify(id: string, action: "approve" | "reject") {
-    if (paymentBusyRef.current) return;
-    paymentBusyRef.current = true;
-    setPaymentError("");
-    let reason: string | undefined;
-    if (action === "reject") {
-      reason = window.prompt(t("pay.rejectReason")) || "";
-      if (!reason.trim()) return;
-    }
-    setPaymentBusyId(id);
-    try {
-      await verifyAppointmentPayment(id, action, reason);
-      onPaymentUpdated?.();
-    } catch (err) {
-      setPaymentError(err instanceof Error ? err.message : t("pay.uploadError"));
-    } finally {
-      paymentBusyRef.current = false;
-      setPaymentBusyId(null);
-    }
-  }
 
   return (
     <>
@@ -262,7 +232,7 @@ export default function CounselorDashboard({
                         <button
                           type="button"
                           className="min-w-0 break-all text-base font-semibold text-ethio-green-dark"
-                          onClick={() => openReceipt(appt.id).catch((err) => setPaymentError(err.message))}
+                          onClick={() => onOpenReceipt(appt.id)}
                         >
                           {t("pay.viewReceipt")}
                           {appt.payment_receipt_filename ? ` · ${appt.payment_receipt_filename}` : ""}
@@ -274,32 +244,12 @@ export default function CounselorDashboard({
               )}
               <div className="mt-3 flex flex-wrap gap-3">
                 {appt.payment_status === "submitted" && (
-                  <>
-                    <button
-                      type="button"
-                      className="btn-primary text-base"
-                      disabled={Boolean(paymentBusyId)}
-                      aria-busy={paymentBusyId === appt.id}
-                      onClick={() => handleVerify(appt.id, "approve")}
-                    >
-                      {paymentBusyId === appt.id ? (
-                        <>
-                          <span className="btn-spinner" aria-hidden />
-                          {t("pay.approving")}
-                        </>
-                      ) : (
-                        t("pay.approve")
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      className="text-base font-semibold text-ethio-red disabled:opacity-50"
-                      disabled={Boolean(paymentBusyId)}
-                      onClick={() => handleVerify(appt.id, "reject")}
-                    >
-                      {t("pay.reject")}
-                    </button>
-                  </>
+                  <PaymentVerifyButtons
+                    appointmentId={appt.id}
+                    busyId={paymentBusyId}
+                    onApprove={onApprovePayment}
+                    onReject={onRejectPayment}
+                  />
                 )}
                 {appt.can_join_video && appt.video_room_url && (
                   <a
