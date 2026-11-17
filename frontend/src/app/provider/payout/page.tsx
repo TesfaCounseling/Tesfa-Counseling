@@ -2,15 +2,17 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
 import FeedbackPageLocationSetter from "@/components/FeedbackPageLocationSetter";
 import PageHero from "@/components/PageHero";
-import { getMyProviderProfile, updateMyProviderProfile } from "@/lib/api";
+import { getMyProviderProfile, hasAuthSession, updateMyProviderProfile } from "@/lib/api";
 import { useLanguage } from "@/components/LanguageProvider";
 
 const METHOD_OPTIONS = ["Remitly", "TapTap Send", "Wise", "Western Union", "CBE"];
 
 export default function ProviderPayoutPage() {
+  const router = useRouter();
   const { t } = useLanguage();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -21,6 +23,10 @@ export default function ProviderPayoutPage() {
   const [methods, setMethods] = useState<string[]>(METHOD_OPTIONS);
 
   useEffect(() => {
+    if (!hasAuthSession()) {
+      router.replace("/login?next=/provider/payout");
+      return;
+    }
     getMyProviderProfile()
       .then((data) => {
         setAccountName(data.profile.payout_account_name || "");
@@ -29,7 +35,7 @@ export default function ProviderPayoutPage() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load payout settings"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [router]);
 
   function toggleMethod(method: string) {
     setMethods((current) =>
@@ -72,10 +78,10 @@ export default function ProviderPayoutPage() {
       />
       <main className="mx-auto max-w-5xl page-pad pb-12 pt-2">
         {loading ? (
-          <p className="text-sm text-ethio-ink-muted">{t("common.loading")}</p>
+          <p className="text-base text-ethio-ink-muted">{t("common.loading")}</p>
         ) : (
           <form onSubmit={handleSubmit} className="card-vibrant space-y-5 p-6">
-            <label className="block text-sm font-medium text-ethio-ink">
+            <label className="block text-base font-medium text-ethio-ink">
               {t("payout.accountName")}
               <input
                 value={accountName}
@@ -84,7 +90,7 @@ export default function ProviderPayoutPage() {
                 autoComplete="name"
               />
             </label>
-            <label className="block text-sm font-medium text-ethio-ink">
+            <label className="block text-base font-medium text-ethio-ink">
               {t("payout.details")}
               <textarea
                 value={details}
@@ -93,13 +99,13 @@ export default function ProviderPayoutPage() {
                 className="input-field"
                 placeholder="Bank name, account number, branch, or wallet ID"
               />
-              <span className="mt-1 block text-xs font-normal text-ethio-ink-muted">{t("payout.detailsHint")}</span>
+              <span className="mt-1 block text-base font-normal text-ethio-ink-muted">{t("payout.detailsHint")}</span>
             </label>
             <fieldset>
-              <legend className="text-sm font-medium text-ethio-ink">{t("payout.methods")}</legend>
+              <legend className="text-base font-medium text-ethio-ink">{t("payout.methods")}</legend>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {METHOD_OPTIONS.map((method) => (
-                  <label key={method} className="flex items-center gap-2 text-sm text-ethio-ink">
+                  <label key={method} className="flex min-w-0 items-center gap-2 text-base text-ethio-ink">
                     <input
                       type="checkbox"
                       checked={methods.includes(method)}
@@ -113,10 +119,10 @@ export default function ProviderPayoutPage() {
             {error && <p className="alert-error">{error}</p>}
             {success && <p className="alert-success">{success}</p>}
             <div className="flex flex-wrap gap-3">
-              <button type="submit" disabled={saving} className="btn-primary text-sm disabled:opacity-60">
+              <button type="submit" disabled={saving} className="btn-primary text-base disabled:opacity-60">
                 {saving ? t("common.pleaseWait") : t("payout.save")}
               </button>
-              <Link href="/provider/profile" className="rounded-lg border border-ethio-border px-4 py-2 text-sm font-semibold text-ethio-ink-muted">
+              <Link href="/provider/profile" className="rounded-lg border border-ethio-border px-4 py-2 text-base font-semibold text-ethio-ink-muted">
                 Edit profile
               </Link>
             </div>

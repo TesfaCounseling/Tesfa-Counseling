@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
 import FeedbackPageLocationSetter from "@/components/FeedbackPageLocationSetter";
 import PageHero from "@/components/PageHero";
@@ -10,6 +11,7 @@ import TimezoneSelect from "@/components/TimezoneSelect";
 import {
   deleteMyProviderPhoto,
   getMyProviderProfile,
+  hasAuthSession,
   updateMyProviderProfile,
   uploadMyProviderPhoto,
   type ProviderProfile,
@@ -41,6 +43,7 @@ function ProfileChecklist({ profile }: { profile: ProviderProfile }) {
 }
 
 export default function ProviderProfilePage() {
+  const router = useRouter();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -54,6 +57,10 @@ export default function ProviderProfilePage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
+    if (!hasAuthSession()) {
+      router.replace("/login?next=/provider/profile");
+      return;
+    }
     getMyProviderProfile()
       .then((data) => {
         setProfile(data.profile);
@@ -63,7 +70,7 @@ export default function ProviderProfilePage() {
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load profile"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [router]);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -186,7 +193,7 @@ export default function ProviderProfilePage() {
           {profile.type === "therapist" && (
             <div className="rounded-xl border border-ethio-border p-4">
               <p className="text-sm font-semibold text-ethio-ink">Profile photo</p>
-              <p className="mt-1 text-xs text-ethio-ink-muted">
+              <p className="mt-1 text-base text-ethio-ink-muted">
                 JPEG, PNG, or WebP · max 2 MB. Shown on the homepage and counselor listings.
               </p>
               <div className="mt-4 flex flex-wrap items-center gap-4">
@@ -250,7 +257,7 @@ export default function ProviderProfilePage() {
                   placeholder="e.g. Licensed Clinical Counselor"
                   className="input-field"
                 />
-                <span className="mt-1 block text-xs font-normal text-ethio-ink-muted">
+                <span className="mt-1 block text-base font-normal text-ethio-ink-muted">
                   Shown on your public profile instead of a generic “Licensed counselor” label.
                 </span>
               </label>
@@ -273,7 +280,7 @@ export default function ProviderProfilePage() {
                   placeholder="A brief welcome for clients — your approach, who you help, and what sessions feel like."
                   className="input-field"
                 />
-                <span className="mt-1 block text-xs font-normal text-ethio-ink-muted">
+                <span className="mt-1 block text-base font-normal text-ethio-ink-muted">
                   This appears on the main page and your public counselor profile.
                 </span>
               </label>

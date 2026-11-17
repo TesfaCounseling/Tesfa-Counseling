@@ -37,7 +37,7 @@ export default function ClinicalNoteEditorPage() {
 
   useEffect(() => {
     if (!localStorage.getItem("access_token")) {
-      router.push("/login");
+      router.replace(`/login?next=${encodeURIComponent(`/provider/notes/${appointmentId}`)}`);
       return;
     }
     Promise.all([getMe(), getNoteByAppointment(appointmentId)])
