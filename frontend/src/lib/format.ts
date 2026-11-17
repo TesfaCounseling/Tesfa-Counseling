@@ -58,6 +58,35 @@ export function formatDateTime(iso: string, timeZone?: string) {
   });
 }
 
+export function formatTimeInZone(iso: string, timeZone: string) {
+  return parseUtcIso(iso).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone,
+  });
+}
+
+/** Calendar date key (YYYY-MM-DD) in a specific IANA timezone. */
+export function dateKeyInZone(iso: string, timeZone: string) {
+  return parseUtcIso(iso).toLocaleDateString("en-CA", { timeZone });
+}
+
+export function formatDayLabelInZone(iso: string, timeZone: string) {
+  const key = dateKeyInZone(iso, timeZone);
+  const todayKey = dateKeyInZone(new Date().toISOString(), timeZone);
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowKey = dateKeyInZone(tomorrow.toISOString(), timeZone);
+  if (key === todayKey) return "Today";
+  if (key === tomorrowKey) return "Tomorrow";
+  return parseUtcIso(iso).toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    timeZone,
+  });
+}
+
 export function formatAppointmentWhen(
   appt: {
     starts_at: string;
@@ -86,7 +115,28 @@ export function formatStatusLabel(status: string) {
 }
 
 export function formatMoney(cents: number, currency = "USD") {
-  return new Intl.NumberFormat("en-US", { style: "currency", currency }).format(cents / 100);
+  const code = (currency || "USD").toUpperCase();
+  try {
+    const amount = new Intl.NumberFormat("en-US", { style: "currency", currency: code }).format(cents / 100);
+    return amount.includes(code) ? amount : `${amount} ${code}`;
+  } catch {
+    return `$${(cents / 100).toFixed(2)} ${code}`;
+  }
+}
+
+export const PAYMENT_METHOD_LABELS: Record<string, string> = {
+  remitly: "Remitly",
+  taptap: "TapTap Send",
+  wise: "Wise",
+  western_union: "Western Union",
+  cbe: "CBE",
+  other: "Other",
+};
+
+export function formatPaymentMethod(method?: string | null) {
+  if (!method) return "";
+  const key = method.trim().toLowerCase().replace(/\s+/g, "_");
+  return PAYMENT_METHOD_LABELS[key] || method.replace(/_/g, " ");
 }
 
 export function formatPricingType(type: string) {

@@ -160,6 +160,50 @@ def ensure_testing_feedback_schema() -> None:
     logger.info("testing_feedback schema bootstrap complete")
 
 
+def _add_missing_columns(table: str, statements: dict[str, str]) -> None:
+    bind = db.engine
+    inspector = inspect(bind)
+    if table not in inspector.get_table_names():
+        return
+    columns = {col["name"] for col in inspector.get_columns(table)}
+    pending = [(name, sql) for name, sql in statements.items() if name not in columns]
+    if not pending:
+        return
+    logger.warning("%s missing columns %s — applying bootstrap SQL", table, [name for name, _ in pending])
+    with bind.begin() as conn:
+        for name, sql in pending:
+            try:
+                conn.execute(text(sql))
+            except Exception as exc:
+                logger.warning("%s.%s bootstrap skipped: %s", table, name, exc)
+
+
+def ensure_profile_payout_schema() -> None:
+    """Add title, location, payout, and payment-note columns when migration has not run yet."""
+    _add_missing_columns(
+        "therapist_profiles",
+        {
+            "professional_title": "ALTER TABLE therapist_profiles ADD COLUMN professional_title VARCHAR(120)",
+            "practice_location": "ALTER TABLE therapist_profiles ADD COLUMN practice_location VARCHAR(255)",
+            "payout_account_name": "ALTER TABLE therapist_profiles ADD COLUMN payout_account_name VARCHAR(255)",
+            "payout_details": "ALTER TABLE therapist_profiles ADD COLUMN payout_details TEXT",
+            "payout_methods": "ALTER TABLE therapist_profiles ADD COLUMN payout_methods VARCHAR(255)",
+        },
+    )
+    _add_missing_columns(
+        "trainee_profiles",
+        {
+            "payout_account_name": "ALTER TABLE trainee_profiles ADD COLUMN payout_account_name VARCHAR(255)",
+            "payout_details": "ALTER TABLE trainee_profiles ADD COLUMN payout_details TEXT",
+            "payout_methods": "ALTER TABLE trainee_profiles ADD COLUMN payout_methods VARCHAR(255)",
+        },
+    )
+    _add_missing_columns(
+        "appointments",
+        {"payment_client_note": "ALTER TABLE appointments ADD COLUMN payment_client_note VARCHAR(500)"},
+    )
+
+
 def normalize_sqlite_schedule_change_types() -> None:
     """SQLite may store enum member names (BOOKED) while the model expects values (booked)."""
     bind = db.engine

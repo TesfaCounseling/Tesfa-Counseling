@@ -29,6 +29,8 @@ export interface Provider {
   bio?: string | null;
   specializations?: string | null;
   languages?: string | null;
+  professional_title?: string | null;
+  practice_location?: string | null;
   program_name?: string | null;
   photo_url?: string | null;
 }
@@ -69,6 +71,7 @@ export interface Appointment {
   payment_submitted_at?: string | null;
   payment_verified_at?: string | null;
   payment_rejection_reason?: string | null;
+  payment_client_note?: string | null;
   payment_required?: boolean;
   provider_name?: string | null;
   client_name?: string | null;
@@ -82,6 +85,7 @@ export interface Appointment {
 export interface PaymentInstructions {
   account_name: string;
   account_details: string;
+  account_details_configured?: boolean;
   accepted_methods: string[];
   notes: string;
   local_methods_coming_soon?: boolean;
@@ -96,6 +100,11 @@ export interface ProviderProfile {
   specializations?: string | null;
   languages?: string | null;
   timezone?: string | null;
+  professional_title?: string | null;
+  practice_location?: string | null;
+  payout_account_name?: string | null;
+  payout_details?: string | null;
+  payout_methods?: string[];
   license_number?: string | null;
   license_authority?: string | null;
   program_name?: string | null;
@@ -279,6 +288,14 @@ export function updateMyTimezone(timezone: string) {
   return apiFetch<{ user: AuthUser }>(
     "/auth/me/preferences",
     { method: "PATCH", body: JSON.stringify({ timezone }) },
+    true
+  );
+}
+
+export function updateMyPreferences(payload: { preferred_language?: "en" | "am"; timezone?: string }) {
+  return apiFetch<{ user: AuthUser }>(
+    "/auth/me/preferences",
+    { method: "PATCH", body: JSON.stringify(payload) },
     true
   );
 }
@@ -677,11 +694,17 @@ export function getAppointmentPayment(id: string) {
   );
 }
 
-export async function uploadPaymentReceipt(id: string, paymentMethod: DiasporaPaymentMethod, file: File) {
+export async function uploadPaymentReceipt(
+  id: string,
+  paymentMethod: DiasporaPaymentMethod,
+  file: File,
+  note?: string
+) {
   const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
   const form = new FormData();
   form.append("payment_method", paymentMethod);
   form.append("receipt", file);
+  if (note?.trim()) form.append("payment_note", note.trim());
   const res = await fetch(`${getApiUrl()}/appointments/${id}/payment/receipt`, {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : {},

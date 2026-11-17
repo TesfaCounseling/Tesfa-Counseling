@@ -82,6 +82,8 @@ export default function ProviderProfilePage() {
         payload.specializations = String(form.get("specializations") || "").trim();
         payload.license_number = String(form.get("license_number") || "").trim();
         payload.license_authority = String(form.get("license_authority") || "").trim();
+        payload.professional_title = String(form.get("professional_title") || "").trim();
+        payload.practice_location = String(form.get("practice_location") || "").trim();
       } else {
         payload.program_name = String(form.get("program_name") || "").trim();
       }
@@ -241,6 +243,27 @@ export default function ProviderProfilePage() {
           {profile.type === "therapist" ? (
             <>
               <label className="block text-sm font-medium text-ethio-ink">
+                Title
+                <input
+                  name="professional_title"
+                  defaultValue={profile.professional_title || ""}
+                  placeholder="e.g. Licensed Clinical Counselor"
+                  className="input-field"
+                />
+                <span className="mt-1 block text-xs font-normal text-ethio-ink-muted">
+                  Shown on your public profile instead of a generic “Licensed counselor” label.
+                </span>
+              </label>
+              <label className="block text-sm font-medium text-ethio-ink">
+                Location
+                <input
+                  name="practice_location"
+                  defaultValue={profile.practice_location || ""}
+                  placeholder="e.g. Addis Ababa, Ethiopia"
+                  className="input-field"
+                />
+              </label>
+              <label className="block text-sm font-medium text-ethio-ink">
                 Introduction
                 <textarea
                   name="bio"
@@ -285,6 +308,9 @@ export default function ProviderProfilePage() {
             </button>
             <Link href="/provider/schedule" className="rounded-lg border border-ethio-border px-4 py-2 text-sm font-semibold text-ethio-ink-muted">
               Manage schedule
+            </Link>
+            <Link href="/provider/payout" className="rounded-lg border border-ethio-border px-4 py-2 text-sm font-semibold text-ethio-ink-muted">
+              Payout settings
             </Link>
           </div>
         </form>

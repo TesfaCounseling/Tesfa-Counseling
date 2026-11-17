@@ -1,49 +1,23 @@
 "use client";
 
 import type { Slot } from "@/lib/api";
-import { parseUtcIso } from "@/lib/format";
+import { dateKeyInZone, formatDayLabelInZone, formatTimeInZone } from "@/lib/format";
 
 type SlotPickerProps = {
   slots: Slot[];
   selected: Slot | null;
   onSelect: (slot: Slot) => void;
   booking: string | null;
+  timeZone: string;
 };
 
-function formatDayLabel(iso: string) {
-  const date = parseUtcIso(iso);
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-
-  const sameDay = (a: Date, b: Date) =>
-    a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-
-  if (sameDay(date, today)) return "Today";
-  if (sameDay(date, tomorrow)) return "Tomorrow";
-
-  return date.toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
-}
-
-function formatTime(iso: string) {
-  return parseUtcIso(iso).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
-}
-
-function localDateKey(iso: string) {
-  const date = parseUtcIso(iso);
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function groupSlots(slots: Slot[]) {
+function groupSlots(slots: Slot[], timeZone: string) {
   const groups = new Map<string, { label: string; sortKey: string; slots: Slot[] }>();
 
   for (const slot of slots) {
-    const dayKey = localDateKey(slot.starts_at);
+    const dayKey = dateKeyInZone(slot.starts_at, timeZone);
     if (!groups.has(dayKey)) {
-      groups.set(dayKey, { label: formatDayLabel(slot.starts_at), sortKey: dayKey, slots: [] });
+      groups.set(dayKey, { label: formatDayLabelInZone(slot.starts_at, timeZone), sortKey: dayKey, slots: [] });
     }
     groups.get(dayKey)!.slots.push(slot);
   }
@@ -51,8 +25,8 @@ function groupSlots(slots: Slot[]) {
   return Array.from(groups.values()).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 }
 
-export default function SlotPicker({ slots, selected, onSelect, booking }: SlotPickerProps) {
-  const groups = groupSlots(slots);
+export default function SlotPicker({ slots, selected, onSelect, booking, timeZone }: SlotPickerProps) {
+  const groups = groupSlots(slots, timeZone);
 
   return (
     <div className="space-y-6">
@@ -80,13 +54,13 @@ export default function SlotPicker({ slots, selected, onSelect, booking }: SlotP
                   className={`slot-pill ${isSelected ? "slot-pill-selected" : ""}`}
                   aria-pressed={isSelected}
                 >
-                  <span className="slot-pill-time">{formatTime(slot.starts_at)}</span>
+                  <span className="slot-pill-time">{formatTimeInZone(slot.starts_at, timeZone)}</span>
                   {isBooking ? (
                     <span className="slot-pill-meta">Booking…</span>
                   ) : isSelected ? (
                     <span className="slot-pill-meta">Selected</span>
                   ) : (
-                    <span className="slot-pill-meta">{formatTime(slot.ends_at)} end</span>
+                    <span className="slot-pill-meta">{formatTimeInZone(slot.ends_at, timeZone)} end</span>
                   )}
                 </button>
               );

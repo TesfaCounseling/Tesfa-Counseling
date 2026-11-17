@@ -115,6 +115,9 @@ def register():
 
     from app.timezone_utils import normalize_timezone
 
+    if not (data.get("timezone") or "").strip():
+        return jsonify({"error": "ValidationError", "message": "Timezone is required"}), 400
+
     languages = (data.get("languages") or "").strip()
     specializations = (data.get("specializations") or "").strip()
     if role == UserRole.THERAPIST and not languages:

@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import CounselorsPageShell from "@/components/CounselorsPageShell";
 import type { Provider } from "@/lib/api";
-
 import { configuredApiUrl } from "@/lib/apiBase";
+import { PAGE_SEO } from "@/lib/seo";
+
+export const metadata: Metadata = PAGE_SEO.counselors;
 
 const API_URL = configuredApiUrl();
 

@@ -9,7 +9,12 @@ import {
   paymentReceiptUrl,
   verifyAppointmentPayment,
 } from "@/lib/api";
-import { appointmentTimezoneLabel, formatAppointmentWhen, formatMoney } from "@/lib/format";
+import {
+  appointmentTimezoneLabel,
+  formatAppointmentWhen,
+  formatMoney,
+  formatPaymentMethod,
+} from "@/lib/format";
 import ClientScheduleAlerts from "@/components/dashboard/ClientScheduleAlerts";
 
 type CounselorDashboardProps = {
@@ -107,6 +112,12 @@ export default function CounselorDashboard({
           </span>
           <span className="text-base font-semibold text-ethio-ink">Manage schedule</span>
         </Link>
+        <Link href="/provider/payout" className="card-vibrant flex min-h-[80px] items-center gap-3 p-4">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ethio-surface text-lg">
+            🏦
+          </span>
+          <span className="text-base font-semibold text-ethio-ink">{t("payout.title")}</span>
+        </Link>
         <Link href="/provider/notes" className="card-vibrant flex min-h-[80px] items-center gap-3 p-4">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ethio-surface text-lg">
             📋
@@ -151,28 +162,58 @@ export default function CounselorDashboard({
               <p className="text-sm text-ethio-ink-muted">
                 {appt.client_name || "Client"}
                 {" · "}
-                {appt.duration_minutes} min · {appt.status}
+                {appt.duration_minutes} min ·{" "}
+                {appt.payment_status === "pending" || appt.payment_status === "submitted"
+                  ? t("pay.awaitingVerification")
+                  : appt.payment_status === "rejected"
+                    ? t("pay.status.rejected")
+                    : appt.status}
                 {appt.session_mode === "audio_only" && " · Audio"}
               </p>
               <p className="text-xs text-ethio-ink-muted">{formatMoney(appt.amount_cents, appt.currency)}</p>
-              {appt.payment_status && appt.payment_status !== "verified" && appt.payment_status !== "not_required" && (
-                <p className="mt-1 text-xs font-semibold text-ethio-green-dark">
-                  {t(`pay.status.${appt.payment_status}` as "pay.status.pending")}
-                  {appt.payment_reference ? ` · ${appt.payment_reference}` : ""}
-                </p>
+              {appt.payment_status &&
+                appt.payment_status !== "not_required" &&
+                (appt.payment_status !== "verified" ||
+                  Boolean(appt.payment_method || appt.payment_reference || appt.payment_receipt_uploaded)) && (
+                <div className="mt-3 rounded-xl bg-ethio-surface p-3 text-sm text-ethio-ink">
+                  <p className="text-xs font-bold uppercase tracking-wide text-ethio-ink-muted">
+                    {t("pay.paymentRecord")}
+                  </p>
+                  <p className="mt-1 font-semibold text-ethio-green-dark">
+                    {appt.payment_status === "verified"
+                      ? t("pay.approved")
+                      : appt.payment_status === "submitted" || appt.payment_status === "pending"
+                        ? t("pay.awaitingVerification")
+                        : t(`pay.status.${appt.payment_status}` as "pay.status.pending")}
+                  </p>
+                  {formatPaymentMethod(appt.payment_method) && (
+                    <p className="mt-1">
+                      {t("pay.methodLabel")}: {formatPaymentMethod(appt.payment_method)}
+                    </p>
+                  )}
+                  {appt.payment_reference && (
+                    <p className="mt-1">
+                      {t("pay.reference")}:{" "}
+                      <span className="font-mono font-bold tracking-wide">{appt.payment_reference}</span>
+                    </p>
+                  )}
+                  {appt.payment_client_note && (
+                    <p className="mt-1 text-ethio-ink-muted">{appt.payment_client_note}</p>
+                  )}
+                  {appt.payment_receipt_uploaded && (
+                    <button
+                      type="button"
+                      className="mt-2 text-sm font-semibold text-ethio-green-dark"
+                      onClick={() => openReceipt(appt.id).catch((err) => setPaymentError(err.message))}
+                    >
+                      {t("pay.viewReceipt")}
+                    </button>
+                  )}
+                </div>
               )}
               <div className="mt-3 flex flex-wrap gap-3">
                 {appt.payment_status === "submitted" && (
                   <>
-                    {appt.payment_receipt_uploaded && (
-                      <button
-                        type="button"
-                        className="text-sm font-semibold text-ethio-green-dark"
-                        onClick={() => openReceipt(appt.id).catch((err) => setPaymentError(err.message))}
-                      >
-                        {t("pay.viewReceipt")}
-                      </button>
-                    )}
                     <button
                       type="button"
                       className="btn-primary text-sm"

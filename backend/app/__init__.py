@@ -60,6 +60,7 @@ def create_app(config_name: str | None = None) -> Flask:
         from app.db_bootstrap import (
             ensure_appointment_payment_schema,
             ensure_password_reset_schema,
+            ensure_profile_payout_schema,
             ensure_provider_timezone_schema,
             ensure_testing_feedback_schema,
             normalize_sqlite_schedule_change_types,
@@ -68,6 +69,7 @@ def create_app(config_name: str | None = None) -> Flask:
         ensure_password_reset_schema()
         ensure_appointment_payment_schema()
         ensure_provider_timezone_schema()
+        ensure_profile_payout_schema()
         ensure_testing_feedback_schema()
         normalize_sqlite_schedule_change_types()
 

@@ -17,6 +17,44 @@ from app.utils import get_current_user, log_audit
 
 providers_bp = Blueprint("providers", __name__)
 
+DEFAULT_PAYOUT_METHODS = ["Remitly", "TapTap Send", "Wise", "Western Union", "CBE"]
+
+
+def _parse_payout_methods(value: str | None) -> list[str]:
+    if not value or not str(value).strip():
+        return list(DEFAULT_PAYOUT_METHODS)
+    methods = [part.strip() for part in str(value).split(",") if part.strip()]
+    return methods or list(DEFAULT_PAYOUT_METHODS)
+
+
+def _payout_fields(profile) -> dict:
+    return {
+        "payout_account_name": getattr(profile, "payout_account_name", None),
+        "payout_details": getattr(profile, "payout_details", None),
+        "payout_methods": _parse_payout_methods(getattr(profile, "payout_methods", None)),
+        "payout_methods_raw": getattr(profile, "payout_methods", None),
+    }
+
+
+def _apply_payout_fields(profile, data: dict) -> None:
+    if "payout_account_name" in data:
+        profile.payout_account_name = (data.get("payout_account_name") or "").strip()[:255] or None
+    if "payout_details" in data:
+        profile.payout_details = (data.get("payout_details") or "").strip() or None
+    if "payout_methods" in data:
+        raw = data.get("payout_methods")
+        if isinstance(raw, list):
+            methods = [str(item).strip() for item in raw if str(item).strip()]
+        else:
+            methods = [part.strip() for part in str(raw or "").split(",") if part.strip()]
+        allowed = {name.lower(): name for name in DEFAULT_PAYOUT_METHODS}
+        cleaned = []
+        for method in methods:
+            key = method.lower()
+            if key in allowed and allowed[key] not in cleaned:
+                cleaned.append(allowed[key])
+        profile.payout_methods = ", ".join(cleaned) if cleaned else None
+
 
 def _sync_practice_timezone(user: User, timezone_name: str) -> None:
     """Keep active availability rules aligned with the practice timezone."""
@@ -35,11 +73,14 @@ def _profile_response(user: User) -> dict | None:
             "specializations": profile.specializations,
             "languages": profile.languages,
             "timezone": profile.timezone,
+            "professional_title": profile.professional_title,
+            "practice_location": profile.practice_location,
             "license_number": profile.license_number,
             "license_authority": profile.license_authority,
             "approval_status": profile.approval_status.value,
             "photo_url": provider_my_photo_path() if therapist_has_photo(profile) else None,
             "public_profile_complete": therapist_public_profile_complete(profile),
+            **_payout_fields(profile),
         }
     if user.trainee_profile:
         profile = user.trainee_profile
@@ -60,6 +101,7 @@ def _profile_response(user: User) -> dict | None:
             "supervisor_id": str(profile.supervisor_id) if profile.supervisor_id else None,
             "supervisor_name": supervisor_name,
             "supervisor_email": supervisor_email,
+            **_payout_fields(profile),
         }
     return None
 
@@ -102,10 +144,15 @@ def update_my_profile():
             profile.license_number = (data.get("license_number") or "").strip() or None
         if "license_authority" in data:
             profile.license_authority = (data.get("license_authority") or "").strip() or None
+        if "professional_title" in data:
+            profile.professional_title = (data.get("professional_title") or "").strip()[:120] or None
+        if "practice_location" in data:
+            profile.practice_location = (data.get("practice_location") or "").strip()[:255] or None
         if "timezone" in data:
             timezone_name = normalize_timezone(data.get("timezone"))
             profile.timezone = timezone_name
             _sync_practice_timezone(user, timezone_name)
+        _apply_payout_fields(profile, data)
     elif user.trainee_profile:
         profile = user.trainee_profile
         if "program_name" in data:
@@ -119,6 +166,7 @@ def update_my_profile():
             timezone_name = normalize_timezone(data.get("timezone"))
             profile.timezone = timezone_name
             _sync_practice_timezone(user, timezone_name)
+        _apply_payout_fields(profile, data)
     else:
         return jsonify({"error": "Not Found", "message": "No provider profile for this account"}), 404
 

@@ -32,6 +32,7 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
   const [loading, setLoading] = useState(false);
   const [preferredLanguage, setPreferredLanguage] = useState<AppLanguage>(language);
   const [timezone, setTimezone] = useState("");
+  const [detectedTimezone, setDetectedTimezone] = useState("");
 
   useEffect(() => {
     setRole(resolvedDefault);
@@ -42,7 +43,7 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
   }, [language]);
 
   useEffect(() => {
-    setTimezone(getBrowserTimezone());
+    setDetectedTimezone(getBrowserTimezone());
   }, []);
 
   const copy =
@@ -64,6 +65,11 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
     setLoading(true);
 
     const form = new FormData(e.currentTarget);
+    if (!timezone.trim()) {
+      setError(t("register.timezoneRequired"));
+      setLoading(false);
+      return;
+    }
     try {
       const payload: Parameters<typeof registerUser>[0] = {
         email: String(form.get("email")),
@@ -71,7 +77,7 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
         first_name: String(form.get("first_name")),
         last_name: String(form.get("last_name")),
         role,
-        timezone: timezone || getBrowserTimezone(),
+        timezone: timezone.trim(),
       };
       if (role === "client") {
         payload.preferred_language = preferredLanguage;
@@ -164,16 +170,16 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
           </label>
         )}
 
-        {timezone ? (
-          <TimezoneSelect
-            value={timezone}
-            onChange={setTimezone}
-            label={role === "therapist" ? t("register.practiceTimezone") : t("register.timezone")}
-            hint={
-              role === "therapist" ? t("register.practiceTimezoneHint") : t("register.timezoneHint")
-            }
-          />
-        ) : null}
+        <TimezoneSelect
+          value={timezone}
+          onChange={setTimezone}
+          detectedTimezone={detectedTimezone}
+          prominent
+          label={role === "therapist" ? t("register.practiceTimezone") : t("register.timezone")}
+          hint={
+            role === "therapist" ? t("register.practiceTimezoneHint") : t("register.timezoneHint")
+          }
+        />
 
         {role === "therapist" && (
           <>

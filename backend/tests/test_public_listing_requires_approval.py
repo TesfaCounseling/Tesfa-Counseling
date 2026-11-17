@@ -31,7 +31,7 @@ def test_approved_counselor_with_bio_is_listable(app_ctx):
     assert therapist_publicly_listable(profile) is True
 
 
-def test_register_therapist_stays_off_public_list(client):
+def test_register_therapist_stays_off_public_list(client, app):
     email = f"pending-{uuid.uuid4().hex[:8]}@example.com"
     response = client.post(
         "/api/v1/auth/register",
@@ -49,10 +49,11 @@ def test_register_therapist_stays_off_public_list(client):
     assert response.status_code == 201, response.get_json()
     user_id = response.get_json()["user"]["id"]
 
-    user = db.session.get(User, uuid.UUID(user_id))
-    assert user is not None
-    assert user.therapist_profile is not None
-    assert user.therapist_profile.approval_status == ApprovalStatus.PENDING
+    with app.app_context():
+        user = db.session.get(User, uuid.UUID(user_id))
+        assert user is not None
+        assert user.therapist_profile is not None
+        assert user.therapist_profile.approval_status == ApprovalStatus.PENDING
 
     # Even after writing a bio, pending counselors stay private.
     token = response.get_json()["access_token"]

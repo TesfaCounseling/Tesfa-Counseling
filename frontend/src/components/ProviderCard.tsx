@@ -38,9 +38,14 @@ export default function ProviderCard({ provider }: ProviderCardProps) {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h2 className="text-xl font-bold tracking-tight text-ethio-ink">{provider.full_name}</h2>
-              <p className="mt-1 text-sm font-semibold capitalize text-ethio-green">
-                {provider.type === "trainee" ? t("provider.supervisedTrainee") : t("provider.licensedCounselor")}
+              <p className="mt-1 text-sm font-semibold text-ethio-green">
+                {provider.type === "trainee"
+                  ? t("provider.supervisedTrainee")
+                  : provider.professional_title?.trim() || t("provider.licensedCounselor")}
               </p>
+              {provider.practice_location?.trim() && (
+                <p className="mt-1 text-xs text-ethio-ink-muted">{provider.practice_location}</p>
+              )}
             </div>
             <span className="provider-badge">{t("provider.availableOnline")}</span>
           </div>
