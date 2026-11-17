@@ -50,7 +50,7 @@ const en = {
   "home.missionText":
     "Tesfa Counseling is a virtual counseling service dedicated to serving Ethiopians and Ethiopian families throughout the diaspora. Our culturally informed and compassionate team provides professional counseling for individuals, couples, families, and young adults.",
   "home.tesfaMeaning":
-    "“Tesfa” means hope — from the ancient Ethiopian language of Geʽez (ተስፋ). It reflects our commitment to bringing hope and support to those we serve.",
+    "“Tesfa” (ተስፋ) means hope — from the ancient Ethiopian language of Geʽez. It reflects our commitment to bringing hope and support to those we serve.",
   "home.tagline": "Hope · Healing · Home",
   "home.teamEmptyTitle": "Counselors joining soon",
   "home.teamEmptyDesc":
