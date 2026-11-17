@@ -25,7 +25,7 @@ function ProfileChecklist({ profile }: { profile: ProviderProfile }) {
   const hasIntro = Boolean(profile.bio?.trim());
 
   return (
-    <div className="rounded-xl bg-ethio-surface p-4 text-sm">
+    <div className="rounded-xl bg-ethio-surface p-4 text-base">
       <p className="font-semibold text-ethio-ink">Public listing checklist</p>
       <p className="mt-1 text-ethio-ink-muted">
         You stay hidden from the public site until an admin approves you and your introduction is complete.
@@ -182,32 +182,25 @@ export default function ProviderProfilePage() {
         backLabel="Dashboard"
       />
       <main className="mx-auto max-w-5xl page-pad pb-12 pt-2">
-        <form onSubmit={handleSubmit} className="card-vibrant space-y-5 p-6">
-          <p className="text-sm text-ethio-ink-muted">
-            Signed in as <strong className="text-ethio-ink">{email}</strong> · Status:{" "}
-            <span className="capitalize">{profile.approval_status}</span>
-          </p>
-
-          {profile.type === "therapist" && <ProfileChecklist profile={profile} />}
-
+        <form onSubmit={handleSubmit} className="card-vibrant min-w-0 space-y-5 overflow-x-hidden p-6">
           {profile.type === "therapist" && (
-            <div className="rounded-xl border border-ethio-border p-4">
-              <p className="text-sm font-semibold text-ethio-ink">Profile photo</p>
+            <div className="min-w-0 overflow-x-hidden rounded-xl border border-ethio-border p-4">
+              <p className="text-base font-semibold text-ethio-ink">Profile photo</p>
               <p className="mt-1 text-base text-ethio-ink-muted">
                 JPEG, PNG, or WebP · max 2 MB. Shown on the homepage and counselor listings.
               </p>
-              <div className="mt-4 flex flex-wrap items-center gap-4">
+              <div className="mt-4 flex min-w-0 max-w-full flex-col items-start gap-4 overflow-x-hidden sm:flex-row sm:flex-wrap sm:items-center">
                 <ProviderAvatar
                   name={fullName}
                   photoUrl={localPhotoPreview || profile.photo_url}
                   size="lg"
                 />
-                <div className="flex flex-wrap gap-2">
+                <div className="flex min-w-0 max-w-full flex-col gap-2 sm:flex-row sm:flex-wrap">
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingPhoto}
-                    className="btn-secondary text-sm disabled:opacity-60"
+                    className="btn-secondary w-full min-w-0 max-w-full text-base disabled:opacity-60 sm:w-auto"
                   >
                     {uploadingPhoto ? "Uploading…" : photoPreview ? "Change photo" : "Upload photo"}
                   </button>
@@ -216,7 +209,7 @@ export default function ProviderProfilePage() {
                       type="button"
                       onClick={handleRemovePhoto}
                       disabled={uploadingPhoto}
-                      className="rounded-lg border border-ethio-border px-4 py-2 text-sm font-semibold text-ethio-ink-muted disabled:opacity-60"
+                      className="w-full min-w-0 max-w-full rounded-lg border border-ethio-border px-4 py-3 text-base font-semibold text-ethio-ink-muted disabled:opacity-60 sm:w-auto"
                     >
                       Remove
                     </button>
@@ -233,7 +226,14 @@ export default function ProviderProfilePage() {
             </div>
           )}
 
-          <label className="block text-sm font-medium text-ethio-ink">
+          <p className="text-base text-ethio-ink-muted">
+            Signed in as <strong className="text-ethio-ink">{email}</strong> · Status:{" "}
+            <span className="capitalize">{profile.approval_status}</span>
+          </p>
+
+          {profile.type === "therapist" && <ProfileChecklist profile={profile} />}
+
+          <label className="block text-base font-medium text-ethio-ink">
             Languages (comma-separated)
             <input name="languages" defaultValue={profile.languages || ""} required className="input-field" />
           </label>
@@ -249,7 +249,7 @@ export default function ProviderProfilePage() {
 
           {profile.type === "therapist" ? (
             <>
-              <label className="block text-sm font-medium text-ethio-ink">
+              <label className="block text-base font-medium text-ethio-ink">
                 Title
                 <input
                   name="professional_title"
@@ -261,7 +261,7 @@ export default function ProviderProfilePage() {
                   Shown on your public profile instead of a generic “Licensed counselor” label.
                 </span>
               </label>
-              <label className="block text-sm font-medium text-ethio-ink">
+              <label className="block text-base font-medium text-ethio-ink">
                 Location
                 <input
                   name="practice_location"
@@ -270,7 +270,7 @@ export default function ProviderProfilePage() {
                   className="input-field"
                 />
               </label>
-              <label className="block text-sm font-medium text-ethio-ink">
+              <label className="block text-base font-medium text-ethio-ink">
                 Introduction
                 <textarea
                   name="bio"
@@ -284,23 +284,23 @@ export default function ProviderProfilePage() {
                   This appears on the main page and your public counselor profile.
                 </span>
               </label>
-              <label className="block text-sm font-medium text-ethio-ink">
+              <label className="block text-base font-medium text-ethio-ink">
                 Specialties (comma-separated)
                 <input name="specializations" defaultValue={profile.specializations || ""} className="input-field" />
               </label>
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className="block text-sm font-medium text-ethio-ink">
+                <label className="block text-base font-medium text-ethio-ink">
                   License number
                   <input name="license_number" defaultValue={profile.license_number || ""} className="input-field" />
                 </label>
-                <label className="block text-sm font-medium text-ethio-ink">
+                <label className="block text-base font-medium text-ethio-ink">
                   License authority
                   <input name="license_authority" defaultValue={profile.license_authority || ""} className="input-field" />
                 </label>
               </div>
             </>
           ) : (
-            <label className="block text-sm font-medium text-ethio-ink">
+            <label className="block text-base font-medium text-ethio-ink">
               Training program
               <input name="program_name" defaultValue={profile.program_name || ""} className="input-field" />
             </label>
@@ -310,13 +310,13 @@ export default function ProviderProfilePage() {
           {success && <p className="alert-success">{success}</p>}
 
           <div className="flex flex-wrap gap-3">
-            <button type="submit" disabled={saving} className="btn-primary text-sm disabled:opacity-60">
+            <button type="submit" disabled={saving} className="btn-primary text-base disabled:opacity-60">
               {saving ? "Saving…" : "Save profile"}
             </button>
-            <Link href="/provider/schedule" className="rounded-lg border border-ethio-border px-4 py-2 text-sm font-semibold text-ethio-ink-muted">
+            <Link href="/provider/schedule" className="rounded-lg border border-ethio-border px-4 py-3 text-base font-semibold text-ethio-ink-muted">
               Manage schedule
             </Link>
-            <Link href="/provider/payout" className="rounded-lg border border-ethio-border px-4 py-2 text-sm font-semibold text-ethio-ink-muted">
+            <Link href="/provider/payout" className="rounded-lg border border-ethio-border px-4 py-3 text-base font-semibold text-ethio-ink-muted">
               Payout settings
             </Link>
           </div>

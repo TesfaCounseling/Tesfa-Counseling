@@ -2,7 +2,7 @@
 
 > Living handoff doc. Update this file as work progresses so the next agent can continue without re-discovering decisions.
 >
-> **Last updated:** 2026-11-17 — receipt-upload counselor email; English-only UI flag; login dashboards; book canonical; CORS deploy previews
+> **Last updated:** 2026-11-17 — counselor Edit Profile photo moved to top of form
 
 ---
 
@@ -1026,6 +1026,22 @@ See **`DEPLOY.md`**. Summary:
 - Book page no longer says “Payment processing coming soon”
 - User-facing network errors no longer mention `start-backend.ps1` or “Cannot reach the API”
 - CORS allows production Tesfa hosts + `https://deploy-preview-<number>--tesfa-counseling.netlify.app` (no `*` wildcard)
+
+### 2026-11-17 — Receipt filename includes TESFA reference (notes not prefilled)
+
+- Pay page **Notes or reference (optional)** stays empty optional free text (`payment_client_note`); do not prefill with TESFA-XXXXXX
+- Receipt upload always keeps/generates `payment_reference` and stores filename as `TESFA-XXXXXX_receipt.<ext>` (sanitize, original extension, `_2` on collision)
+- Counselor approve/payment record shows the reference next to **View receipt** (plus stored filename)
+- Existing counselor session list can filter by payment reference (`GET /appointments?q=`; dashboard search box). No separate admin payments search exists
+- Tests: filename contains reference, collision suffix, `q` filter, client note still saved separately
+
+### 2026-11-17 — Dashboard payment action banners
+
+- Counselor: sticky high-contrast top banner when any booking is `submitted` — “Action needed: N payment(s) awaiting your verification”; lists TESFA ref, client, counselor-local time, receipt, Approve/Reject (shared spinner). Hides after approve/reject via local appointment update (no full reload)
+- Client: same-style top banner — “Upload your payment receipt” (link to pay page) for pending/rejected; “Awaiting counselor verification” after upload. Hidden when none pending
+- No dedicated admin payments inbox; counselor session list still has reference search
+- Counselor payment actions (card + top banner): three real buttons in one row — **View Receipt** (`btn-cta`, largest), **Approve Payment** (`btn-primary`), **Reject** (`btn-danger`). Stack on 390px in that order; Approve spinner/disabled unchanged
+- Counselor **Edit profile**: photo preview + upload/change/remove is the first block in the form (upload behavior unchanged)
 
 ---
 
