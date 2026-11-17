@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import or_
+from sqlalchemy import String, cast, func
 
 from app.models import ApprovalStatus, TherapistProfile
 
@@ -37,11 +37,8 @@ def therapist_is_approved(profile) -> bool:
 
 def approved_therapist_status_filter():
     """SQL filter that matches approved rows whether DB stored names or values."""
-    return or_(
-        TherapistProfile.approval_status == ApprovalStatus.APPROVED,
-        TherapistProfile.approval_status == "APPROVED",
-        TherapistProfile.approval_status == "approved",
-    )
+    status_text = func.lower(cast(TherapistProfile.approval_status, String))
+    return status_text.in_(("approved",))
 
 
 def therapist_public_profile_complete(profile: TherapistProfile) -> bool:

@@ -36,7 +36,12 @@ export default function ClientScheduleAlerts({ appointments, onDismiss, perspect
     const provider = appt.provider_name || t("schedule.defaultCounselor");
 
     if (alert.type === "booked") {
-      return formatTranslation(language, "schedule.bookedMessage", { provider, when });
+      const awaitingPayment = appt.payment_status === "pending" || appt.payment_status === "submitted";
+      return formatTranslation(
+        language,
+        awaitingPayment ? "schedule.bookedAwaitingPayment" : "schedule.bookedMessage",
+        { provider, when }
+      );
     }
 
     if (alert.changed_by_self) {
@@ -65,14 +70,18 @@ export default function ClientScheduleAlerts({ appointments, onDismiss, perspect
         >
           <div>
             <p className="font-semibold">
-              {appt.schedule_alert?.type === "booked" ? t("schedule.bookedTitle") : t("schedule.rescheduledTitle")}
+              {appt.schedule_alert?.type === "booked"
+                ? appt.payment_status === "pending" || appt.payment_status === "submitted"
+                  ? t("schedule.bookedAwaitingTitle")
+                  : t("schedule.bookedTitle")
+                : t("schedule.rescheduledTitle")}
             </p>
             <p className="mt-1">{alertMessage(appt)}</p>
           </div>
           <button
             type="button"
             onClick={() => onDismiss(appt.id)}
-            className="shrink-0 self-start rounded-lg border border-current/20 px-3 py-1.5 text-xs font-semibold hover:bg-white/40"
+            className="shrink-0 self-start rounded-lg border border-current/20 px-3 py-1.5 text-base font-semibold hover:bg-white/40"
           >
             {t("schedule.gotIt")}
           </button>

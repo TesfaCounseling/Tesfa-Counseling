@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useLanguage } from "@/components/LanguageProvider";
 import type { Appointment, AuthUser, ProviderProfile } from "@/lib/api";
@@ -39,6 +39,7 @@ export default function CounselorDashboard({
   const { t } = useLanguage();
   const [profile, setProfile] = useState<ProviderProfile | null>(null);
   const [paymentBusyId, setPaymentBusyId] = useState<string | null>(null);
+  const paymentBusyRef = useRef(false);
   const [paymentError, setPaymentError] = useState("");
 
   useEffect(() => {
@@ -62,6 +63,8 @@ export default function CounselorDashboard({
   }
 
   async function handleVerify(id: string, action: "approve" | "reject") {
+    if (paymentBusyRef.current) return;
+    paymentBusyRef.current = true;
     setPaymentError("");
     let reason: string | undefined;
     if (action === "reject") {
@@ -75,6 +78,7 @@ export default function CounselorDashboard({
     } catch (err) {
       setPaymentError(err instanceof Error ? err.message : t("pay.uploadError"));
     } finally {
+      paymentBusyRef.current = false;
       setPaymentBusyId(null);
     }
   }
@@ -167,7 +171,9 @@ export default function CounselorDashboard({
                   ? t("pay.awaitingVerification")
                   : appt.payment_status === "rejected"
                     ? t("pay.status.rejected")
-                    : appt.status}
+                    : appt.payment_status === "verified"
+                      ? t("pay.paidConfirmed")
+                      : appt.status}
                 {appt.session_mode === "audio_only" && " · Audio"}
               </p>
               <p className="text-xs text-ethio-ink-muted">{formatMoney(appt.amount_cents, appt.currency)}</p>
@@ -216,16 +222,24 @@ export default function CounselorDashboard({
                   <>
                     <button
                       type="button"
-                      className="btn-primary text-sm"
-                      disabled={paymentBusyId === appt.id}
+                      className="btn-primary text-base"
+                      disabled={Boolean(paymentBusyId)}
+                      aria-busy={paymentBusyId === appt.id}
                       onClick={() => handleVerify(appt.id, "approve")}
                     >
-                      {t("pay.approve")}
+                      {paymentBusyId === appt.id ? (
+                        <>
+                          <span className="btn-spinner" aria-hidden />
+                          {t("pay.approving")}
+                        </>
+                      ) : (
+                        t("pay.approve")
+                      )}
                     </button>
                     <button
                       type="button"
-                      className="text-sm font-semibold text-ethio-red"
-                      disabled={paymentBusyId === appt.id}
+                      className="text-base font-semibold text-ethio-red disabled:opacity-50"
+                      disabled={Boolean(paymentBusyId)}
                       onClick={() => handleVerify(appt.id, "reject")}
                     >
                       {t("pay.reject")}

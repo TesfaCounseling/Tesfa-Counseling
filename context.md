@@ -1003,6 +1003,15 @@ See **`DEPLOY.md`**. Summary:
 - Each static page sets its own canonical path; dynamic book/pay/note-editor pages omit canonical so they never claim to be the homepage
 - Logged-out visits to `/provider/payout` (and profile/schedule/note editor) redirect to `/login?next=…` instead of the “Cannot reach the API / start-backend.ps1” message
 
+### 2026-11-17 — Booking, listing, payment UX follow-ups (same PR)
+
+- Selected slot stays **dark green + white** on hover (WCAG AA); hover no longer paints a pale fill over selected
+- Public `/therapists` list/detail/photo/pricing and frontend homepage/counselors list **only approved** counselors
+- Client schedule banner uses payment status (awaiting verification vs confirmed) instead of always saying “confirmed”
+- Book UI and API only offer/accept session lengths with an **active price** (no free 90-min fallback)
+- Counselor **Approve payment** shows spinner, disables both actions, blocks double submit
+- Client (and counselor) cards show **Paid · confirmed** after verification
+
 ---
 
 *End of context — append updates below as work continues.*

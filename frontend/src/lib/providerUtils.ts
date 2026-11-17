@@ -1,6 +1,15 @@
 import type { Provider } from "@/lib/api";
 import { getApiOrigin } from "@/lib/apiBase";
 
+export function isPubliclyApprovedProvider(provider: Provider): boolean {
+  const status = (provider.approval_status || "").trim().toLowerCase();
+  return status === "approved";
+}
+
+export function publicApprovedProviders(providers: Provider[]): Provider[] {
+  return providers.filter(isPubliclyApprovedProvider);
+}
+
 export function parseProviderTags(value: string | null | undefined): string[] {
   if (!value) return [];
   return value

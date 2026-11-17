@@ -34,8 +34,8 @@ export default function SlotPicker({ slots, selected, onSelect, booking, timeZon
         <section key={group.sortKey}>
           <div className="day-group-header">
             <span className="day-group-dot" aria-hidden />
-            <h3 className="text-sm font-bold uppercase tracking-wide text-ethio-green-dark">{group.label}</h3>
-            <span className="text-xs font-medium text-ethio-ink-muted">
+            <h3 className="text-base font-bold uppercase tracking-wide text-ethio-green-dark">{group.label}</h3>
+            <span className="text-base font-medium text-ethio-ink-muted">
               {group.slots.length} open {group.slots.length === 1 ? "slot" : "slots"}
             </span>
           </div>

@@ -79,8 +79,11 @@ const en = {
   "provider.viewAvailability": "View availability",
   "provider.program": "Program",
   "schedule.bookedTitle": "Session scheduled",
+  "schedule.bookedAwaitingTitle": "Payment awaiting verification",
   "schedule.rescheduledTitle": "Session rescheduled",
   "schedule.bookedMessage": "Your session with {{provider}} is confirmed for {{when}}.",
+  "schedule.bookedAwaitingPayment":
+    "Your session with {{provider}} is booked for {{when}}. Payment is awaiting verification.",
   "schedule.rescheduledSelf": "Your session with {{provider}} has been rescheduled to {{when}}.",
   "schedule.rescheduledBy": "{{who}} rescheduled your session to {{when}}.",
   "schedule.providerBookedMessage": "{{client}} booked a session for {{when}}.",
@@ -201,6 +204,8 @@ const en = {
   "pay.status.rejected": "Receipt rejected — please resubmit",
   "pay.completePayment": "Complete payment",
   "pay.awaitingVerification": "Awaiting payment verification",
+  "pay.paidConfirmed": "Paid · confirmed",
+  "pay.approving": "Approving…",
   "pay.accountDetailsPending":
     "Receive-account details will appear here once Tesfa Counseling publishes them. Use your payment reference in the transfer memo.",
   "pay.notesOptional": "Notes or reference (optional)",
@@ -326,8 +331,11 @@ const am: Record<keyof typeof en, string> = {
   "provider.viewAvailability": "ተገኝነትን ይመልከቱ",
   "provider.program": "ፕሮግራም",
   "schedule.bookedTitle": "ክፍለ ጊዜ ተዘጋጀ",
+  "schedule.bookedAwaitingTitle": "ክፍያ ማረጋገጫ በመጠበቅ ላይ",
   "schedule.rescheduledTitle": "ክፍለ ጊዜ ተቀይሯል",
   "schedule.bookedMessage": "ከ {{provider}} ጋር {{when}} ክፍለ ጊዜ ተረጋግጧል።",
+  "schedule.bookedAwaitingPayment":
+    "ከ {{provider}} ጋር {{when}} ክፍለ ጊዜ ተይዟል። ክፍያ ማረጋገጫ በመጠበቅ ላይ ነው።",
   "schedule.rescheduledSelf": "ከ {{provider}} ጋር ክፍለ ጊዜ ወደ {{when}} ተቀይሯል።",
   "schedule.rescheduledBy": "{{who}} ክፍለ ጊዜዎን ወደ {{when}} ቀይሯል።",
   "schedule.providerBookedMessage": "{{client}} ለ {{when}} ክፍለ ጊዜ ጠይቋል።",
@@ -448,6 +456,8 @@ const am: Record<keyof typeof en, string> = {
   "pay.status.rejected": "ደረሰኝ ተቀባይነት አላገኘም — እንደገና ያስገቡ",
   "pay.completePayment": "ክፍያ ያጠናቁ",
   "pay.awaitingVerification": "የክፍያ ማረጋገጫ በመጠበቅ ላይ",
+  "pay.paidConfirmed": "ተከፍሏል · ተረጋግጧል",
+  "pay.approving": "በማጽደቅ ላይ…",
   "pay.accountDetailsPending":
     "የመቀበያ ሂሳብ ዝርዝር ሲታተም እዚህ ይታያል። ክፍያዎን ለማዛመድ የክፍያ ማጣቀሻዎን በማስታወሻ ውስጥ ያስገቡ።",
   "pay.notesOptional": "ማስታወሻ ወይም ማጣቀሻ (አማራጭ)",
