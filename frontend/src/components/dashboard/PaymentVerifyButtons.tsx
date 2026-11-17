@@ -12,7 +12,7 @@ type PaymentVerifyButtonsProps = {
   onReject: (id: string) => void;
 };
 
-/** View Receipt (loudest) → Approve Payment → Reject. Stacks on 390px, same order. */
+/** Three real buttons: View Receipt (loudest) → Approve Payment → Reject (danger). Stacks at 390px. */
 export default function PaymentVerifyButtons({
   appointmentId,
   busyId,
@@ -29,11 +29,11 @@ export default function PaymentVerifyButtons({
   if (!canViewReceipt && !canVerify) return null;
 
   return (
-    <div className="flex w-full min-w-0 max-w-full flex-col gap-2 overflow-x-hidden sm:flex-row sm:flex-wrap sm:items-center">
+    <div className="flex w-full min-w-0 max-w-full flex-col gap-2 overflow-x-hidden sm:flex-row sm:flex-nowrap sm:items-stretch">
       {canViewReceipt && onViewReceipt && (
         <button
           type="button"
-          className="btn-cta !min-w-0 w-full max-w-full text-lg sm:flex-1"
+          className="btn-cta !min-w-0 w-full max-w-full shrink-0 text-lg sm:flex-[1.4]"
           onClick={() => onViewReceipt(appointmentId)}
         >
           {t("pay.viewReceipt")}
@@ -43,7 +43,7 @@ export default function PaymentVerifyButtons({
         <>
           <button
             type="button"
-            className="btn-primary w-full min-h-[48px] min-w-0 max-w-full px-4 py-2 text-base sm:w-auto sm:flex-none"
+            className="btn-primary !min-w-0 w-full max-w-full shrink-0 px-4 text-base sm:flex-1"
             disabled={busy}
             aria-busy={thisBusy}
             onClick={() => onApprove(appointmentId)}
@@ -59,7 +59,7 @@ export default function PaymentVerifyButtons({
           </button>
           <button
             type="button"
-            className="btn-secondary w-full min-h-[44px] min-w-0 max-w-full px-3 py-2 text-base sm:w-auto sm:flex-none"
+            className="btn-danger !min-w-0 w-full max-w-full shrink-0 px-4 text-base sm:flex-1"
             disabled={busy}
             onClick={() => onReject(appointmentId)}
           >
