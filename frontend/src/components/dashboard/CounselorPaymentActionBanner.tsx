@@ -26,7 +26,7 @@ export default function CounselorPaymentActionBanner({
   onOpenReceipt,
   paymentError,
 }: CounselorPaymentActionBannerProps) {
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const pending = counselorPaymentsNeedingVerification(appointments, providerId);
   if (pending.length === 0) return null;
 
@@ -60,23 +60,18 @@ export default function CounselorPaymentActionBanner({
               <p className="mt-0.5 break-words text-base font-medium text-white/90">
                 {appointmentTimezoneLabel(appt, true)}
               </p>
-              <div className="mt-3 flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-                {appt.payment_receipt_uploaded && (
-                  <button
-                    type="button"
-                    className="min-h-[48px] min-w-0 break-all text-left text-base font-extrabold underline decoration-2 underline-offset-2"
-                    onClick={() => onOpenReceipt(appt.id)}
-                  >
-                    {t("pay.viewReceipt")}
-                    {appt.payment_receipt_filename ? ` · ${appt.payment_receipt_filename}` : ""}
-                  </button>
-                )}
+              {appt.payment_receipt_filename && (
+                <p className="mt-1 break-all text-base font-medium text-white/90">{appt.payment_receipt_filename}</p>
+              )}
+              <div className="mt-3 min-w-0">
                 <PaymentVerifyButtons
                   appointmentId={appt.id}
                   busyId={paymentBusyId}
+                  canViewReceipt={Boolean(appt.payment_receipt_uploaded)}
+                  canVerify
+                  onViewReceipt={onOpenReceipt}
                   onApprove={onApprove}
                   onReject={onReject}
-                  compact
                 />
               </div>
             </li>

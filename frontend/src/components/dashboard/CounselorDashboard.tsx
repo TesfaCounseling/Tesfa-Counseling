@@ -218,39 +218,32 @@ export default function CounselorDashboard({
                   {appt.payment_client_note && (
                     <p className="mt-1 break-words text-ethio-ink-muted">{appt.payment_client_note}</p>
                   )}
-                  {(appt.payment_reference || appt.payment_receipt_uploaded) && (
-                    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-                      {appt.payment_reference && (
-                        <p className="min-w-0">
-                          {t("pay.reference")}:{" "}
-                          <span className="break-all font-mono font-bold tracking-wide">
-                            {appt.payment_reference}
-                          </span>
-                        </p>
-                      )}
-                      {appt.payment_receipt_uploaded && (
-                        <button
-                          type="button"
-                          className="min-w-0 break-all text-base font-semibold text-ethio-green-dark"
-                          onClick={() => onOpenReceipt(appt.id)}
-                        >
-                          {t("pay.viewReceipt")}
-                          {appt.payment_receipt_filename ? ` · ${appt.payment_receipt_filename}` : ""}
-                        </button>
-                      )}
-                    </div>
+                  {appt.payment_reference && (
+                    <p className="mt-2 min-w-0">
+                      {t("pay.reference")}:{" "}
+                      <span className="break-all font-mono font-bold tracking-wide">
+                        {appt.payment_reference}
+                      </span>
+                    </p>
+                  )}
+                  {appt.payment_receipt_filename && (
+                    <p className="mt-1 break-all text-base text-ethio-ink-muted">{appt.payment_receipt_filename}</p>
                   )}
                 </div>
               )}
-              <div className="mt-3 flex flex-wrap gap-3">
-                {appt.payment_status === "submitted" && (
+              <div className="mt-3 flex min-w-0 flex-col gap-3">
+                {(appt.payment_status === "submitted" || appt.payment_receipt_uploaded) && (
                   <PaymentVerifyButtons
                     appointmentId={appt.id}
                     busyId={paymentBusyId}
+                    canViewReceipt={Boolean(appt.payment_receipt_uploaded)}
+                    canVerify={appt.payment_status === "submitted"}
+                    onViewReceipt={onOpenReceipt}
                     onApprove={onApprovePayment}
                     onReject={onRejectPayment}
                   />
                 )}
+                <div className="flex flex-wrap gap-3">
                 {appt.can_join_video && appt.video_room_url && (
                   <a
                     href={appt.video_room_url}
@@ -281,6 +274,7 @@ export default function CounselorDashboard({
                 <button type="button" onClick={() => onCancel(appt.id)} className="text-sm font-semibold text-ethio-red">
                   Cancel
                 </button>
+                </div>
               </div>
             </div>
           ))}
