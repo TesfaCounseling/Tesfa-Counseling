@@ -2,7 +2,7 @@
 
 > Living handoff doc. Update this file as work progresses so the next agent can continue without re-discovering decisions.
 >
-> **Last updated:** 2026-11-13 — diaspora remittance payment; forgot-password; Brevo email; signed-in profile chip; Amharic nav/copy
+> **Last updated:** 2026-11-17 — booking grid uses saved client timezone; payout/settings pages; payment UX polish; unique page SEO
 
 ---
 
@@ -379,16 +379,18 @@ Note: Tailwind classes use prefix `ethio-*` (legacy) — maps to **blue** brand,
 | `/reset-password` | Client | Set new password from email token |
 | `/register`, `/register/client`, `/counselor`, `/trainee` | Client | Languages required for providers |
 | `/counselors` | Server | Provider list + filters |
-| `/counselors/[id]/book` | Client | Book or `?reschedule=:id`; paid book → redirect to pay page |
+| `/counselors/[id]/book` | Client | Book or `?reschedule=:id`; slot grid in **saved client timezone**; logged-out → login `?next=` back to this book page |
 | `/counselors/[id]/intake` | Client | Trainee intake before booking |
-| `/appointments/[id]/pay` | Client | Remittance instructions + receipt upload |
+| `/appointments/[id]/pay` | Client | Remittance instructions + receipt upload; hides unset `PAYMENT_ACCOUNT_DETAILS` |
 | `/schedule` | Client | Booking-first client schedule |
-| `/dashboard` | Client | **Main hub after login** — role-based; client **Complete payment**; counselor approve/reject receipts |
+| `/account/settings` | Client | Client timezone + language |
+| `/provider/payout` | Client | Counselor bank/payout details + Remitly/TapTap/Wise/WU/CBE |
+| `/dashboard` | Client | **Main hub after login** — awaiting payment verification until approve; payment record after approve |
 | `/admin` | Client | Redirects to `/dashboard` if admin access |
 | `/supervision` | Client | Cosign queue — trainee **session notes** only |
 | `/supervision/intakes` | Client | Supervisor view of client intake forms for assigned trainees |
 | `/provider/schedule` | Client | Weekly hours + pricing (USD) |
-| `/provider/profile` | Client | Edit bio, languages, specialties |
+| `/provider/profile` | Client | Edit bio, title, location, languages, specialties |
 | `/provider/notes` | Client | Clinical notes list |
 | `/provider/notes/[appointmentId]` | Client | SOAP note editor |
 | `/provider/intakes` | Client | View trainee intakes |
@@ -449,7 +451,9 @@ backend/
 │   ├── l0e1f2a3b4c5d6_testing_feedback_postgres_repair.py
 │   ├── m0e1f2a3b4c5d6_testing_feedback_page_context.py
 │   ├── n1f2a3b4c5d6e7_password_reset_tokens.py
-│   └── o2a3b4c5d6e7f8_appointment_payment_fields.py   # head
+│   ├── o2a3b4c5d6e7f8_appointment_payment_fields.py
+│   ├── p3b4c5d6e7f8a9_provider_timezone.py
+│   └── q4c5d6e7f8a9b0_profile_payout_payment_note.py   # head
 ├── migrate_client_org_links.py
 ├── seed_admin.py
 ├── seed_demo_counselor.py
@@ -616,7 +620,8 @@ See **`DEPLOY.md`**. Summary:
 22. **No formal assigned counselor** — “your counselor” on `/schedule` = most recent provider(s) from appointments
 23. **SQLite schedule_change_type** — legacy rows may store `BOOKED`/`RESCHEDULED` (names); model expects `booked`/`rescheduled` — `normalize_sqlite_schedule_change_types()` on API boot
 24. **Payment UI** — only on **new** paid bookings after deploy; older appointments defaulted `payment_status=verified` (no Complete payment button)
-25. **Remittance env** — without `PAYMENT_ACCOUNT_DETAILS` on Render, pay page shows placeholder text
+25. **Remittance env** — without `PAYMENT_ACCOUNT_DETAILS` on Render, pay page shows a **client-facing** placeholder (never the developer “set this in Render” note)
+27. **Booking slot grid** — must format times with the saved `client_timezone` (`timeZone` option). Browser-local `toLocaleTimeString()` will show LA times for a Toronto client.
 26. **Netlify build** — duplicate exports / bad TranslationKey types fail deploy; fix and push; retry failed deploy on latest commit
 
 ---
@@ -706,7 +711,7 @@ See **`DEPLOY.md`**. Summary:
 
 ## Suggested next work (priority order)
 
-1. **Fill production `PAYMENT_*` env** — real Ethiopia account details on pay page
+1. **Fill production `PAYMENT_ACCOUNT_DETAILS`** — real Ethiopia account details on pay page (Jay)
 2. **Telebirr / local bank** payment methods (after diaspora remittance is stable)
 3. **Scheduled email reminders** — cron on Render for 24h/1h before session (CLI exists; Telegram only today)
 4. **Multi-currency** — counselor picks currency; client sees converted display
@@ -963,6 +968,32 @@ See **`DEPLOY.md`**. Summary:
 
 **Git**
 - Commits through `63f3d0b` on `main` (profile/Amharic); payment `c4d1fc1` + build fix `064953c`
+
+### 2026-11-17 — E2E test follow-ups (timezone, payment UX, settings, SEO)
+
+**Booking timezone**
+- `SlotPicker` groups and formats slots in the client's saved timezone (same as the bottom selection bar `client_local`)
+- Logged-out users who hit `/counselors/:id/book` return there after login (`?next=`)
+
+**Payments**
+- Unset/`PAYMENT_ACCOUNT_DETAILS` developer placeholder is not shown; client-facing copy until Jay sets the real Ethiopia account on Render
+- Dashboard shows **Awaiting payment verification** until counselor approve (not raw `confirmed`)
+- **Complete payment** hidden after receipt upload (`payment_required` only for pending/rejected)
+- After approve, counselor card keeps method, reference, receipt link, approved status
+- Optional notes/reference on receipt upload (`payment_client_note`, migration `q4c5d6e7f8a9b0`)
+
+**Profiles**
+- Client `/account/settings` — timezone + language; timezone is a required highlighted field at client **and** counselor signup
+- Counselor `/provider/payout` — bank/payout details + Remitly, TapTap Send, Wise, Western Union, CBE
+- Counselor title + location on profile (no hardcoded “Licensed counselor” when title is set)
+
+**Polish / SEO**
+- Money includes currency code (`$50.00 USD`)
+- Selected slot uses dark green + white text
+- Pricing form prefills the saved rate
+- Unique title + meta description per page; `robots.ts` + `sitemap.xml`
+
+**Jay still needed:** set production `PAYMENT_ACCOUNT_DETAILS` (real CBE/remittance receive details). Do not invent numbers.
 
 ---
 

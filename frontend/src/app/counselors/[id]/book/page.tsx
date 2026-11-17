@@ -88,7 +88,7 @@ export default function BookCounselorPage() {
       const returnPath =
         isReschedule && rescheduleId
           ? `/counselors/${providerId}/book?reschedule=${encodeURIComponent(rescheduleId)}`
-          : "/counselors";
+          : `/counselors/${providerId}/book`;
       router.push(`/login?next=${encodeURIComponent(returnPath)}`);
       return;
     }
@@ -189,9 +189,14 @@ export default function BookCounselorPage() {
                   <ProviderAvatar name={provider.full_name} photoUrl={provider.photo_url} />
                   <div className="min-w-0">
                     <h2 className="text-lg font-bold text-ethio-ink">{provider.full_name}</h2>
-                    <p className="text-sm font-medium capitalize text-ethio-green">
-                      {provider.type === "trainee" ? "Supervised trainee" : "Licensed counselor"}
+                    <p className="text-sm font-medium text-ethio-green">
+                      {provider.type === "trainee"
+                        ? "Supervised trainee"
+                        : provider.professional_title?.trim() || "Licensed counselor"}
                     </p>
+                    {provider.practice_location?.trim() && (
+                      <p className="text-xs text-ethio-ink-muted">{provider.practice_location}</p>
+                    )}
                   </div>
                 </div>
 
@@ -322,7 +327,13 @@ export default function BookCounselorPage() {
               {loading ? (
                 <SlotPickerSkeleton />
               ) : slots.length > 0 ? (
-                <SlotPicker slots={slots} selected={selected} onSelect={setSelected} booking={booking} />
+                <SlotPicker
+                  slots={slots}
+                  selected={selected}
+                  onSelect={setSelected}
+                  booking={booking}
+                  timeZone={clientTz}
+                />
               ) : !error ? (
                 <div className="empty-state">
                   <span className="text-3xl" aria-hidden>📅</span>

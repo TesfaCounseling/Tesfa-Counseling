@@ -35,6 +35,7 @@ export default function AppointmentPayPage() {
   const [instructions, setInstructions] = useState<PaymentInstructions | null>(null);
   const [method, setMethod] = useState<DiasporaPaymentMethod>("remitly");
   const [file, setFile] = useState<File | null>(null);
+  const [note, setNote] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -66,7 +67,7 @@ export default function AppointmentPayPage() {
     setError("");
     setSuccess("");
     try {
-      const result = await uploadPaymentReceipt(appointmentId, method, file);
+      const result = await uploadPaymentReceipt(appointmentId, method, file, note);
       setAppointment(result.appointment);
       setSuccess(t("pay.uploadSuccess"));
       setFile(null);
@@ -134,9 +135,15 @@ export default function AppointmentPayPage() {
             <section className="space-y-2 text-sm text-ethio-ink">
               <h2 className="font-bold">{t("pay.sendTo")}</h2>
               <p className="font-semibold">{instructions.account_name}</p>
-              <pre className="whitespace-pre-wrap rounded-lg bg-ethio-surface p-3 font-sans text-sm text-ethio-ink">
-                {instructions.account_details}
-              </pre>
+              {instructions.account_details_configured ? (
+                <pre className="whitespace-pre-wrap rounded-lg bg-ethio-surface p-3 font-sans text-sm text-ethio-ink">
+                  {instructions.account_details}
+                </pre>
+              ) : (
+                <p className="rounded-lg bg-ethio-surface p-3 text-sm text-ethio-ink-muted">
+                  {t("pay.accountDetailsPending")}
+                </p>
+              )}
               <p className="text-ethio-ink-muted">{instructions.notes}</p>
               <p className="text-xs text-ethio-ink-muted">
                 {t("pay.acceptedMethods")}: {instructions.accepted_methods.join(", ")}
@@ -180,6 +187,16 @@ export default function AppointmentPayPage() {
                     className="input-field"
                     onChange={(e) => setFile(e.target.files?.[0] || null)}
                     required
+                  />
+                </label>
+                <label className="block text-sm font-medium text-ethio-ink">
+                  {t("pay.notesOptional")}
+                  <input
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                    maxLength={500}
+                    className="input-field"
+                    placeholder={t("pay.notesHint")}
                   />
                 </label>
                 {error && (

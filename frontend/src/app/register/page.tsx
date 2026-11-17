@@ -1,5 +1,9 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { APP_NAME } from "@/lib/brand";
+import { PAGE_SEO } from "@/lib/seo";
+
+export const metadata: Metadata = PAGE_SEO.register;
 
 const options = [
   {

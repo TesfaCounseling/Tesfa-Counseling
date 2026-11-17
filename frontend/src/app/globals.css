@@ -463,23 +463,24 @@
     box-shadow: 0 4px 12px -4px rgba(4, 107, 210, 0.2);
   }
 
-  .slot-pill-selected {
-    border-color: var(--ethio-green);
-    background: var(--ethio-green);
-    color: #ffffff;
-    box-shadow: var(--shadow-ethio);
-  }
-
-  .slot-pill-selected .slot-pill-meta {
-    color: rgba(255, 255, 255, 0.85);
-  }
-
   .slot-pill-time {
-    @apply text-sm font-bold;
+    @apply text-sm font-bold text-ethio-ink;
   }
 
   .slot-pill-meta {
     @apply mt-0.5 text-[10px] font-medium uppercase tracking-wide text-ethio-ink-muted;
+  }
+
+  .slot-pill.slot-pill-selected {
+    border-color: var(--ethio-green-dark);
+    background: var(--ethio-green-dark);
+    color: #ffffff;
+    box-shadow: var(--shadow-ethio);
+  }
+
+  .slot-pill.slot-pill-selected .slot-pill-time,
+  .slot-pill.slot-pill-selected .slot-pill-meta {
+    color: #ffffff;
   }
 
   .empty-state {

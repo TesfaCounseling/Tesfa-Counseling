@@ -27,6 +27,8 @@ def _provider_dict(user: User, profile_type: str) -> dict:
             "bio": profile.bio if profile else None,
             "specializations": profile.specializations if profile else None,
             "languages": profile.languages if profile else None,
+            "professional_title": getattr(profile, "professional_title", None) if profile else None,
+            "practice_location": getattr(profile, "practice_location", None) if profile else None,
             "program_name": None,
             "photo_url": photo_url,
         }

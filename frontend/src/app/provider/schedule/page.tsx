@@ -36,6 +36,10 @@ export default function ProviderSchedulePage() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [timezone, setTimezone] = useState("");
+  const [priceDuration, setPriceDuration] = useState(50);
+  const [priceDollars, setPriceDollars] = useState("25");
+  const [priceCurrency, setPriceCurrency] = useState("USD");
+  const [priceType, setPriceType] = useState("standard");
 
   async function loadAll() {
     const [rulesData, pricingData, profileData] = await Promise.all([
@@ -45,6 +49,13 @@ export default function ProviderSchedulePage() {
     ]);
     setRules(rulesData.rules);
     setPricing(pricingData.pricing);
+    const saved = pricingData.pricing.find((p) => p.duration_minutes === priceDuration) || pricingData.pricing[0];
+    if (saved) {
+      setPriceDuration(saved.duration_minutes);
+      setPriceDollars((saved.amount_cents / 100).toFixed(2));
+      setPriceCurrency(saved.currency || "USD");
+      setPriceType(saved.pricing_type || "standard");
+    }
     const practiceTz =
       profileData.profile.timezone ||
       rulesData.rules[0]?.timezone ||
@@ -197,14 +208,33 @@ export default function ProviderSchedulePage() {
 
           <label className="block text-sm font-medium">
             Session length
-            <select name="duration_minutes" className="input-field">
+            <select
+              name="duration_minutes"
+              className="input-field"
+              value={priceDuration}
+              onChange={(e) => {
+                const minutes = Number(e.target.value);
+                setPriceDuration(minutes);
+                const saved = pricing.find((p) => p.duration_minutes === minutes);
+                if (saved) {
+                  setPriceDollars((saved.amount_cents / 100).toFixed(2));
+                  setPriceCurrency(saved.currency || "USD");
+                  setPriceType(saved.pricing_type || "standard");
+                }
+              }}
+            >
               <option value={50}>50 minutes</option>
               <option value={90}>90 minutes</option>
             </select>
           </label>
           <label className="block text-sm font-medium">
             Currency
-            <select name="currency" className="input-field" defaultValue="USD">
+            <select
+              name="currency"
+              className="input-field"
+              value={priceCurrency}
+              onChange={(e) => setPriceCurrency(e.target.value)}
+            >
               <option value="USD">USD — US Dollar</option>
               <option value="EUR">EUR — Euro</option>
               <option value="GBP">GBP — British Pound</option>
@@ -219,7 +249,8 @@ export default function ProviderSchedulePage() {
                 type="number"
                 min={0.01}
                 step={0.01}
-                defaultValue={25}
+                value={priceDollars}
+                onChange={(e) => setPriceDollars(e.target.value)}
                 required
                 className="input-field"
               />
@@ -230,7 +261,12 @@ export default function ProviderSchedulePage() {
           </label>
           <label className="block text-sm font-medium">
             Pricing type
-            <select name="pricing_type" className="input-field">
+            <select
+              name="pricing_type"
+              className="input-field"
+              value={priceType}
+              onChange={(e) => setPriceType(e.target.value)}
+            >
               <option value="standard">Standard rate</option>
               <option value="sliding_scale">Sliding scale</option>
             </select>

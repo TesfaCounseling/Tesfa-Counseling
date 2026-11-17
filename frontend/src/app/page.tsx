@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import type { Provider } from "@/lib/api";
 import HomePageShell from "@/components/HomePageShell";
-
 import { configuredApiUrl } from "@/lib/apiBase";
+import { PAGE_SEO } from "@/lib/seo";
+
+export const metadata: Metadata = PAGE_SEO.home;
 
 const API_URL = configuredApiUrl();
 

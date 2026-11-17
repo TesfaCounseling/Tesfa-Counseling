@@ -52,7 +52,12 @@ export default function HomeCounselorSpotlight({ providers }: HomeCounselorSpotl
                       <ProviderAvatar name={provider.full_name} photoUrl={provider.photo_url} size="md" />
                       <div className="min-w-0 flex-1">
                         <h3 className="font-bold text-ethio-ink">{provider.full_name}</h3>
-                        <p className="text-xs font-semibold text-ethio-green-dark">{t("home.licensedCounselor")}</p>
+                        <p className="text-xs font-semibold text-ethio-green-dark">
+                          {provider.professional_title?.trim() || t("home.licensedCounselor")}
+                        </p>
+                        {provider.practice_location?.trim() && (
+                          <p className="mt-0.5 text-xs text-ethio-ink-muted">{provider.practice_location}</p>
+                        )}
                       </div>
                     </div>
 

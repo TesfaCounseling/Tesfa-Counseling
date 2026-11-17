@@ -61,15 +61,18 @@ export default function ClientSessionsList({
           <p className="text-xs text-ethio-ink-muted">{appointmentTimezoneLabel(appt, false)}</p>
           <p className="text-sm text-ethio-ink-muted">
             {appt.provider_name || t("dashboard.providerFallback")}
-            {appt.client_name ? ` · ${appt.client_name}` : ""} · {appt.duration_minutes}{" "}
-            {t("dashboard.minutesShort")} · {appt.status}
+            {appt.client_name ? ` · ${appt.client_name}` : ""} ·             {appt.duration_minutes}{" "}
+            {t("dashboard.minutesShort")} ·{" "}
+            {appt.payment_status === "pending" || appt.payment_status === "submitted"
+              ? t("pay.awaitingVerification")
+              : appt.payment_status === "rejected"
+                ? t("pay.status.rejected")
+                : appt.status}
             {appt.session_mode === "audio_only" && ` · ${t("dashboard.audio")}`}
           </p>
           <p className="text-xs text-ethio-ink-muted">{formatMoney(appt.amount_cents, appt.currency)}</p>
-          {appt.payment_status && appt.payment_status !== "verified" && appt.payment_status !== "not_required" && (
-            <p className="mt-1 text-xs font-semibold text-ethio-green-dark">
-              {t(`pay.status.${appt.payment_status}` as "pay.status.pending")}
-            </p>
+          {appt.payment_status === "submitted" && (
+            <p className="mt-1 text-xs font-semibold text-ethio-green-dark">{t("pay.waitingReview")}</p>
           )}
           {showActions && (
             <div className="mt-3 flex flex-wrap gap-3">

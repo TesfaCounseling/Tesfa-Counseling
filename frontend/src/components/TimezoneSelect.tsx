@@ -10,6 +10,9 @@ type TimezoneSelectProps = {
   hint?: string;
   required?: boolean;
   className?: string;
+  emptyLabel?: string;
+  detectedTimezone?: string;
+  prominent?: boolean;
 };
 
 export default function TimezoneSelect({
@@ -20,10 +23,13 @@ export default function TimezoneSelect({
   hint,
   required = true,
   className = "input-field",
+  emptyLabel = "Select your timezone",
+  detectedTimezone,
+  prominent = false,
 }: TimezoneSelectProps) {
-  const options = timezoneOptions(value);
+  const options = timezoneOptions(detectedTimezone || value);
 
-  return (
+  const field = (
     <label className="block text-sm font-medium text-ethio-ink">
       {label}
       <select
@@ -33,13 +39,34 @@ export default function TimezoneSelect({
         required={required}
         className={className}
       >
-        {options.map((tz) => (
-          <option key={tz} value={tz}>
-            {tz.replace(/_/g, " ")}
+        {!value && (
+          <option value="" disabled>
+            {emptyLabel}
           </option>
-        ))}
+        )}
+        {detectedTimezone && (
+          <option value={detectedTimezone}>
+            Detected on this device: {detectedTimezone.replace(/_/g, " ")}
+          </option>
+        )}
+        {options
+          .filter((tz) => tz !== detectedTimezone)
+          .map((tz) => (
+            <option key={tz} value={tz}>
+              {tz.replace(/_/g, " ")}
+            </option>
+          ))}
       </select>
       {hint ? <span className="mt-1 block text-xs font-normal text-ethio-ink-muted">{hint}</span> : null}
     </label>
+  );
+
+  if (!prominent) return field;
+
+  return (
+    <div className="rounded-xl border-2 border-ethio-green bg-ethio-surface-warm p-4">
+      <p className="text-xs font-bold uppercase tracking-wide text-ethio-green-dark">Required</p>
+      <div className="mt-2">{field}</div>
+    </div>
   );
 }

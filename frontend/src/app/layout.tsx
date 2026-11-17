@@ -4,7 +4,11 @@ import { APP_NAME } from "@/lib/brand";
 import { AppProviders } from "./providers";
 
 export const metadata: Metadata = {
-  title: APP_NAME,
+  metadataBase: new URL("https://www.tesfacounseling.com"),
+  title: {
+    default: APP_NAME,
+    template: `%s · ${APP_NAME}`,
+  },
   description:
     "Virtual counseling for Ethiopians and Ethiopian families in the diaspora — culturally informed, compassionate care online.",
   appleWebApp: {

@@ -143,8 +143,8 @@ def _appointment_to_dict(appt: Appointment, user: User | None = None) -> dict:
         "payment_submitted_at": to_iso_utc(appt.payment_submitted_at) if appt.payment_submitted_at else None,
         "payment_verified_at": to_iso_utc(appt.payment_verified_at) if appt.payment_verified_at else None,
         "payment_rejection_reason": appt.payment_rejection_reason,
-        "payment_required": appt.payment_status
-        in (PaymentStatus.PENDING, PaymentStatus.SUBMITTED, PaymentStatus.REJECTED),
+        "payment_client_note": appt.payment_client_note,
+        "payment_required": appt.payment_status in (PaymentStatus.PENDING, PaymentStatus.REJECTED),
         "provider_name": appt.provider.full_name if appt.provider else None,
         "client_name": appt.client.full_name if appt.client else None,
         "video_room_ready": has_video and payment_clear,
@@ -488,6 +488,7 @@ def upload_payment_receipt(appointment_id):
 
     if not appt.payment_reference:
         appt.payment_reference = _unique_payment_reference()
+    note = (request.form.get("payment_note") or request.form.get("notes") or "").strip()
     appt.payment_method = method
     appt.payment_receipt_filename = upload.filename[:255]
     appt.payment_receipt_mime_type = mime_type
@@ -495,6 +496,7 @@ def upload_payment_receipt(appointment_id):
     appt.payment_submitted_at = utcnow()
     appt.payment_status = PaymentStatus.SUBMITTED
     appt.payment_rejection_reason = None
+    appt.payment_client_note = note[:500] or None
     log_audit("appointment.payment_receipt_uploaded", "appointment", str(appt.id), actor_id=user.id)
     db.session.commit()
     return jsonify({"appointment": _appointment_to_dict(appt, user)})

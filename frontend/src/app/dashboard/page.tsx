@@ -340,6 +340,15 @@ export default function DashboardPage() {
                 </span>
                 <span className="text-base font-semibold text-ethio-ink">{t("dashboard.mySchedule")}</span>
               </Link>
+              <Link
+                href="/account/settings"
+                className="card-vibrant flex min-h-[80px] items-center gap-3 p-4 active:bg-ethio-green/5 sm:col-span-2"
+              >
+                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-ethio-surface text-lg">
+                  ⚙️
+                </span>
+                <span className="text-base font-semibold text-ethio-ink">{t("account.settings")}</span>
+              </Link>
             </div>
 
             <ClientScheduleAlerts appointments={appointments} onDismiss={handleDismissScheduleAlert} />
