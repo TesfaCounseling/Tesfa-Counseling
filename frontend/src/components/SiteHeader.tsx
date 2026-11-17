@@ -7,6 +7,7 @@ import { BrandLogoLink } from "@/components/BrandLogo";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/components/LanguageProvider";
 import { clearAuthSession, getMe, type AuthUser } from "@/lib/api";
+import { AMHARIC_UI_ENABLED } from "@/lib/featureFlags";
 
 type SiteHeaderProps = {
   showAuth?: boolean;
@@ -92,9 +93,11 @@ export default function SiteHeader({ showAuth = true, user: userProp = null }: S
               className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2"
               aria-label={t("nav.main")}
             >
-              <div className="hidden sm:block">
-                <LanguageSwitcher compact />
-              </div>
+              {AMHARIC_UI_ENABLED && (
+                <div className="hidden sm:block">
+                  <LanguageSwitcher compact />
+                </div>
+              )}
 
               {!onHomePage && (
                 <Link href="/" className="btn-nav-home" aria-label={t("nav.home")}>
@@ -136,9 +139,11 @@ export default function SiteHeader({ showAuth = true, user: userProp = null }: S
             </nav>
           </div>
 
-          <div className="flex justify-center sm:hidden">
-            <LanguageSwitcher compact />
-          </div>
+          {AMHARIC_UI_ENABLED && (
+            <div className="flex justify-center sm:hidden">
+              <LanguageSwitcher compact />
+            </div>
+          )}
         </div>
       </div>
     </header>

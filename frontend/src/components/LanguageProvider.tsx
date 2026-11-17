@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { AMHARIC_UI_ENABLED } from "@/lib/featureFlags";
 import {
   getStoredLanguage,
   isAppLanguage,
@@ -42,10 +43,11 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   }, [language, ready]);
 
   const setLanguage = useCallback((lang: AppLanguage) => {
-    setLanguageState(lang);
-    localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
+    const next = !AMHARIC_UI_ENABLED ? "en" : lang;
+    setLanguageState(next);
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
     if (typeof window !== "undefined" && localStorage.getItem("access_token")) {
-      updatePreferredLanguage(lang).catch(() => {});
+      updatePreferredLanguage(next).catch(() => {});
     }
   }, []);
 
@@ -69,6 +71,13 @@ export function useLanguageOptional() {
 }
 
 export function syncLanguageFromProfile(preferred: string | null | undefined) {
+  if (!AMHARIC_UI_ENABLED) {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, "en");
+    if (typeof document !== "undefined") {
+      document.documentElement.lang = "en";
+    }
+    return;
+  }
   if (isAppLanguage(preferred)) {
     localStorage.setItem(LANGUAGE_STORAGE_KEY, preferred);
     if (typeof document !== "undefined") {

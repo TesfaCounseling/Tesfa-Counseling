@@ -24,12 +24,11 @@ async function getProviders(): Promise<{ providers: Provider[]; error: string | 
     }
     const data = (await res.json()) as { providers?: Provider[] };
     return { providers: publicApprovedProviders(data.providers ?? []), error: null };
-  } catch (err) {
-    const message =
-      err instanceof Error && err.name === "TimeoutError"
-        ? "Request timed out — is the backend running on port 5050?"
-        : "Cannot reach the API. Start the backend with: cd backend && python run.py";
-    return { providers: [], error: message };
+  } catch {
+    return {
+      providers: [],
+      error: "We couldn't load counselors right now. Please try again in a moment.",
+    };
   }
 }
 

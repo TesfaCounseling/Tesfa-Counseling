@@ -1,6 +1,20 @@
 import { getBrowserTimezone } from "./format";
 import { getApiUrl } from "./apiBase";
 
+export const USER_FACING_NETWORK_ERROR =
+  "We couldn't complete that request right now. Please try again in a moment.";
+
+export function isUnreachableApiError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false;
+  const message = err.message;
+  return (
+    message === USER_FACING_NETWORK_ERROR ||
+    message.includes("Cannot reach the API") ||
+    message.includes("start-backend.ps1") ||
+    message.includes("is the backend running")
+  );
+}
+
 export type UserRole = "therapist" | "trainee" | "client";
 
 export interface AuthUser {
@@ -203,11 +217,9 @@ async function apiFetch<T>(
     });
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      throw new Error("Request timed out — is the backend running on port 5050?");
+      throw new Error(USER_FACING_NETWORK_ERROR);
     }
-    throw new Error(
-      "Cannot reach the API. From the project root run: .\\start-backend.ps1 (or cd backend; python run.py)"
-    );
+    throw new Error(USER_FACING_NETWORK_ERROR);
   } finally {
     clearTimeout(timeoutId);
   }
@@ -1056,11 +1068,9 @@ export async function uploadMyProviderPhoto(file: File) {
     });
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      throw new Error("Upload timed out — check your connection and try again.");
+      throw new Error(USER_FACING_NETWORK_ERROR);
     }
-    throw new Error(
-      "Cannot reach the API to upload your photo. If you're on a phone, use the same Wi‑Fi as your computer and open the site via its network address (not localhost). Also run .\\start-backend.ps1 on the dev machine."
-    );
+    throw new Error(USER_FACING_NETWORK_ERROR);
   } finally {
     clearTimeout(timeoutId);
   }

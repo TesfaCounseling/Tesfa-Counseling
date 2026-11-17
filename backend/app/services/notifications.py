@@ -8,6 +8,7 @@ from email.message import EmailMessage
 
 import requests
 
+from app.datetime_utils import format_in_timezone
 from app.services import email_templates
 
 logger = logging.getLogger(__name__)
@@ -266,6 +267,38 @@ def _notify_users_telegram(users, message: str) -> None:
         link = TelegramLink.query.filter_by(user_id=user.id).first()
         if link:
             send_telegram_message(link.telegram_chat_id, message)
+
+
+def notify_payment_receipt_uploaded(appointment, client, provider) -> None:
+    """Email the counselor when a client uploads a remittance receipt. Failures are logged by send_email."""
+    if not provider or not provider.email:
+        logger.warning(
+            "Skipping payment receipt email; counselor has no email (appointment %s)",
+            getattr(appointment, "id", None),
+        )
+        return
+    tz_name = appointment.provider_timezone or "UTC"
+    try:
+        when = f"{format_in_timezone(appointment.starts_at, tz_name)} ({tz_name})"
+    except Exception:
+        when = appointment.starts_at.strftime("%a %b %d, %Y %I:%M %p UTC")
+    reference = appointment.payment_reference or "—"
+    client_name = client.full_name if client else "Client"
+    counselor_name = provider.first_name or provider.full_name
+    review_url = email_templates.DASHBOARD_URL
+    plain, html_body = email_templates.payment_receipt_uploaded_email(
+        counselor_name=counselor_name,
+        client_name=client_name,
+        payment_reference=reference,
+        session_when=when,
+        review_url=review_url,
+    )
+    send_email(
+        provider.email,
+        f"Payment receipt to review — {reference}",
+        plain,
+        html_body,
+    )
 
 
 def notify_appointment_booked(appointment, client, provider) -> None:

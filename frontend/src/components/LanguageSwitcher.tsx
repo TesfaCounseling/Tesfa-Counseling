@@ -1,6 +1,7 @@
 "use client";
 
 import { useLanguage } from "@/components/LanguageProvider";
+import { AMHARIC_UI_ENABLED } from "@/lib/featureFlags";
 import { SUPPORTED_LANGUAGES, type AppLanguage } from "@/lib/i18n";
 
 type LanguageSwitcherProps = {
@@ -9,6 +10,10 @@ type LanguageSwitcherProps = {
 
 export default function LanguageSwitcher({ compact = false }: LanguageSwitcherProps) {
   const { language, setLanguage, t } = useLanguage();
+
+  if (!AMHARIC_UI_ENABLED) {
+    return null;
+  }
 
   return (
     <div
@@ -25,14 +30,14 @@ export default function LanguageSwitcher({ compact = false }: LanguageSwitcherPr
             key={option.code}
             type="button"
             onClick={() => setLanguage(option.code as AppLanguage)}
-            className={`min-h-[40px] rounded-lg px-2.5 text-xs font-bold transition sm:min-h-[44px] sm:px-3 sm:text-sm ${
+            className={`min-h-[44px] rounded-lg px-3 text-base font-bold transition ${
               active
                 ? "bg-ethio-green text-white shadow-sm"
                 : "text-ethio-green-dark hover:bg-white/70"
             }`}
             aria-pressed={active}
           >
-            {compact ? option.nativeLabel : option.nativeLabel}
+            {option.nativeLabel}
           </button>
         );
       })}

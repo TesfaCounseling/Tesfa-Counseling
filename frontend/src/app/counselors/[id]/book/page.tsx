@@ -197,7 +197,7 @@ export default function BookCounselorPage() {
         subtitle={
           isReschedule
             ? "Select a new slot. We'll email you and your counselor with the updated time."
-            : "Select a slot and confirm your session fee. Payment processing coming soon — your rate is recorded at booking."
+            : "Select a slot and confirm your session fee. After you book, you will get remittance instructions and a payment reference."
         }
       />
 

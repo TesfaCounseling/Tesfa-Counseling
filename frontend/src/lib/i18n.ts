@@ -1,3 +1,5 @@
+import { AMHARIC_UI_ENABLED } from "@/lib/featureFlags";
+
 export type AppLanguage = "en" | "am";
 
 export const LANGUAGE_STORAGE_KEY = "tesfa_app_language";
@@ -129,6 +131,11 @@ const en = {
   "dashboard.joinVideo": "Join video session",
   "dashboard.joinAudio": "Join audio session",
   "dashboard.notSignedIn": "Not signed in.",
+  "dashboard.approvalLabel": "Your approval status",
+  "dashboard.approval.pending": "Pending review — you can set up your profile while you wait.",
+  "dashboard.approval.approved": "Approved — clients can book sessions with you.",
+  "dashboard.approval.rejected": "Not approved — contact Tesfa Counseling if you have questions.",
+  "dashboard.approval.suspended": "Suspended — contact Tesfa Counseling for next steps.",
   "schedule.pageEyebrow": "Scheduling",
   "schedule.pageTitle": "Schedule a session",
   "schedule.pageSubtitle": "Book your next session with your counselor, or manage upcoming appointments.",
@@ -381,6 +388,11 @@ const am: Record<keyof typeof en, string> = {
   "dashboard.joinVideo": "የቪዲዮ ክፍለ ጊዜ ግቡ",
   "dashboard.joinAudio": "የኦዲዮ ክፍለ ጊዜ ግቡ",
   "dashboard.notSignedIn": "ግባ አልተደረገም።",
+  "dashboard.approvalLabel": "የማጽደቅ ሁኔታዎ",
+  "dashboard.approval.pending": "በመጠባበቅ ላይ — መገለጫዎን ማዘጋጀት ይችላሉ።",
+  "dashboard.approval.approved": "ጸድቋል — ደንበኞች ክፍለ ጊዜ ማስያዝ ይችላሉ።",
+  "dashboard.approval.rejected": "አልጸደቀም — ጥያቄ ካለዎት Tesfa Counselingን ያነጋግሩ።",
+  "dashboard.approval.suspended": "ታግዷል — ለቀጣይ እርምጃ Tesfa Counselingን ያነጋግሩ።",
   "schedule.pageEyebrow": "መርሃ ግብር",
   "schedule.pageTitle": "ክፍለ ጊዜ ያስይዙ",
   "schedule.pageSubtitle": "ከአማካሪዎ ጋር ቀጣይ ክፍለ ጊዜ ያስይዙ፣ ወይም የሚመጡ ቀጠሮዎችን ያስተዳድሩ።",
@@ -520,6 +532,7 @@ export function isAppLanguage(value: string | null | undefined): value is AppLan
 
 export function getStoredLanguage(): AppLanguage {
   if (typeof window === "undefined") return "en";
+  if (!AMHARIC_UI_ENABLED) return "en";
   const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
   return isAppLanguage(stored) ? stored : "en";
 }

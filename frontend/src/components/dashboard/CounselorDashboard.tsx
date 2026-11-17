@@ -43,11 +43,23 @@ export default function CounselorDashboard({
   const [paymentError, setPaymentError] = useState("");
 
   useEffect(() => {
-    if (user?.account_type !== "trainee") return;
+    if (!user?.id) return;
     getMyProviderProfile()
       .then((data) => setProfile(data.profile))
       .catch(() => {});
-  }, [user?.account_type]);
+  }, [user?.id]);
+
+  const approvalStatus = (profile?.approval_status || "").toLowerCase();
+  const approvalCopy =
+    approvalStatus === "approved"
+      ? t("dashboard.approval.approved")
+      : approvalStatus === "rejected"
+        ? t("dashboard.approval.rejected")
+        : approvalStatus === "suspended"
+          ? t("dashboard.approval.suspended")
+          : approvalStatus
+            ? t("dashboard.approval.pending")
+            : "";
 
   const providerAppointments = appointments.filter((appt) => appt.provider_id === user?.id);
 
@@ -85,12 +97,30 @@ export default function CounselorDashboard({
 
   return (
     <>
+      {approvalCopy && (
+        <div className="card-vibrant mb-6 p-4">
+          <p className="text-base font-semibold text-ethio-ink">{t("dashboard.approvalLabel")}</p>
+          <p
+            className={`mt-2 inline-flex rounded-full px-3 py-1 text-base font-bold capitalize ${
+              approvalStatus === "approved"
+                ? "bg-ethio-green/15 text-ethio-green-dark"
+                : approvalStatus === "rejected" || approvalStatus === "suspended"
+                  ? "bg-red-100 text-ethio-red"
+                  : "bg-amber-100 text-amber-900"
+            }`}
+          >
+            {approvalStatus}
+          </p>
+          <p className="mt-2 text-base text-ethio-ink-muted">{approvalCopy}</p>
+        </div>
+      )}
+
       {user?.account_type === "trainee" && profile?.supervisor_name && (
         <div className="card-vibrant mb-6 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ethio-ink-muted">Your supervisor</p>
+          <p className="text-base font-semibold text-ethio-ink-muted">Your supervisor</p>
           <p className="mt-1 text-base font-semibold text-ethio-ink">{profile.supervisor_name}</p>
           {profile.supervisor_email && (
-            <p className="text-sm text-ethio-ink-muted">{profile.supervisor_email}</p>
+            <p className="text-base text-ethio-ink-muted">{profile.supervisor_email}</p>
           )}
         </div>
       )}

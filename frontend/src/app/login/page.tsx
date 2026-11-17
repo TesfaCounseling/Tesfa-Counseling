@@ -1,22 +1,24 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useEffect, useState } from "react";
+import { FormEvent, Suspense, useState } from "react";
 import AuthShell from "@/components/AuthShell";
 import { syncLanguageFromProfile, useLanguage } from "@/components/LanguageProvider";
 import { isAppLanguage } from "@/lib/i18n";
-import { getMe, loginUser } from "@/lib/api";
+import { getMe, isUnreachableApiError, loginUser } from "@/lib/api";
+import { isSafeNextPath, postLoginPath } from "@/lib/safeNext";
+
+const SIGN_IN_UNAVAILABLE =
+  "We couldn't sign you in right now. Please try again in a moment.";
 
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { t, setLanguage } = useLanguage();
   const nextPath = searchParams.get("next");
-  const safeNext = nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/dashboard";
-  const registerHref =
-    nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
-      ? `/register/client?next=${encodeURIComponent(nextPath)}`
-      : "/register/client";
+  const registerHref = isSafeNextPath(nextPath)
+    ? `/register/client?next=${encodeURIComponent(nextPath)}`
+    : "/register/client";
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -31,8 +33,10 @@ function LoginForm() {
       const result = await loginUser(String(form.get("email")), String(form.get("password")));
       localStorage.setItem("access_token", result.access_token);
       localStorage.setItem("refresh_token", result.refresh_token);
+      let user = result.user;
       try {
         const me = await getMe();
+        user = me.user;
         if (isAppLanguage(me.user.preferred_language)) {
           setLanguage(me.user.preferred_language);
           syncLanguageFromProfile(me.user.preferred_language);
@@ -40,9 +44,9 @@ function LoginForm() {
       } catch {
         /* keep UI language from switcher */
       }
-      router.push(safeNext);
+      router.push(postLoginPath(nextPath, user));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Login failed");
+      setError(isUnreachableApiError(err) ? SIGN_IN_UNAVAILABLE : err instanceof Error ? err.message : "Login failed");
     } finally {
       setLoading(false);
     }
@@ -51,7 +55,7 @@ function LoginForm() {
   return (
     <AuthShell title={t("login.title")} subtitle={t("login.subtitle")}>
       <form onSubmit={handleSubmit} className="space-y-5">
-        <label className="block text-sm font-medium text-ethio-ink">
+        <label className="block text-base font-medium text-ethio-ink">
           {t("common.email")}
           <input
             name="email"
@@ -63,7 +67,7 @@ function LoginForm() {
           />
         </label>
 
-        <label className="block text-sm font-medium text-ethio-ink">
+        <label className="block text-base font-medium text-ethio-ink">
           {t("common.password")}
           <input
             name="password"
@@ -74,7 +78,7 @@ function LoginForm() {
           />
         </label>
 
-        <p className="text-right text-sm">
+        <p className="text-right text-base">
           <a href="/forgot-password" className="link-inline">
             {t("login.forgotPassword")}
           </a>
@@ -90,7 +94,7 @@ function LoginForm() {
           {loading ? t("login.signingIn") : t("login.signIn")}
         </button>
 
-        <p className="text-center text-sm text-ethio-ink-muted">
+        <p className="text-center text-base text-ethio-ink-muted">
           {t("login.newHere")}{" "}
           <a href={registerHref} className="link-inline">
             {t("login.createAccount")}
@@ -106,7 +110,7 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <AuthShell title="Log in" subtitle="Loading…">
-          <p className="text-sm text-ethio-ink-muted">Loading…</p>
+          <p className="text-base text-ethio-ink-muted">Loading…</p>
         </AuthShell>
       }
     >
