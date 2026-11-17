@@ -290,6 +290,41 @@ def password_reset_email(*, recipient_name: str, reset_url: str, expires_minutes
     )
 
 
+def payment_receipt_uploaded_email(
+    *,
+    counselor_name: str,
+    client_name: str,
+    payment_reference: str,
+    session_when: str,
+    review_url: str,
+) -> tuple[str, str]:
+    plain = (
+        f"Hello {counselor_name},\n\n"
+        f"{client_name} uploaded a payment receipt for review.\n\n"
+        f"Booking reference: {payment_reference}\n"
+        f"Client: {client_name}\n"
+        f"Session time: {session_when}\n\n"
+        f"Review and approve the payment:\n{review_url}\n"
+    )
+    rows = (
+        _detail_row("Reference", _esc(payment_reference))
+        + _detail_row("Client", _esc(client_name))
+        + _detail_row("Session", _esc(session_when))
+    )
+    body = (
+        f'<p style="margin:0 0 8px;color:{INK};font-size:18px;font-weight:bold;">Payment receipt ready to review</p>'
+        f'<p style="margin:0 0 24px;color:{INK_MUTED};font-size:16px;line-height:1.5;">'
+        f"Hello {_esc(counselor_name)}, {_esc(client_name)} uploaded a receipt for a booked session.</p>"
+        f'<table role="presentation" width="100%" cellspacing="0" cellpadding="0">{rows}</table>'
+        + _cta_button("Review payment", review_url)
+    )
+    return plain, wrap_email_html(
+        title="Payment receipt uploaded",
+        preheader=f"Receipt from {client_name} · {payment_reference}",
+        body_html=body,
+    )
+
+
 def test_email() -> tuple[str, str]:
     plain = (
         "Hello,\n\n"

@@ -8,6 +8,7 @@ import TimezoneSelect from "@/components/TimezoneSelect";
 import { syncLanguageFromProfile, useLanguage } from "@/components/LanguageProvider";
 import { getMe, hasAuthSession, updateMyPreferences } from "@/lib/api";
 import { getBrowserTimezone } from "@/lib/format";
+import { AMHARIC_UI_ENABLED } from "@/lib/featureFlags";
 import { isAppLanguage, type AppLanguage } from "@/lib/i18n";
 
 export default function AccountSettingsPage() {
@@ -50,7 +51,7 @@ export default function AccountSettingsPage() {
     try {
       const result = await updateMyPreferences({
         timezone: timezone.trim(),
-        preferred_language: preferredLanguage,
+        preferred_language: AMHARIC_UI_ENABLED ? preferredLanguage : "en",
       });
       if (isAppLanguage(result.user.preferred_language)) {
         setLanguage(result.user.preferred_language);
@@ -87,17 +88,19 @@ export default function AccountSettingsPage() {
               label={t("register.timezone")}
               hint={t("register.timezoneHint")}
             />
-            <label className="block text-sm font-medium text-ethio-ink">
-              {t("register.preferredLanguage")}
-              <select
-                value={preferredLanguage}
-                onChange={(e) => setPreferredLanguage(e.target.value as AppLanguage)}
-                className="input-field"
-              >
-                <option value="en">{t("lang.english")}</option>
-                <option value="am">{t("lang.amharic")}</option>
-              </select>
-            </label>
+            {AMHARIC_UI_ENABLED && (
+              <label className="block text-base font-medium text-ethio-ink">
+                {t("register.preferredLanguage")}
+                <select
+                  value={preferredLanguage}
+                  onChange={(e) => setPreferredLanguage(e.target.value as AppLanguage)}
+                  className="input-field"
+                >
+                  <option value="en">{t("lang.english")}</option>
+                  <option value="am">{t("lang.amharic")}</option>
+                </select>
+              </label>
+            )}
             {error && <p className="alert-error">{error}</p>}
             {success && <p className="alert-success">{success}</p>}
             <button type="submit" disabled={saving} className="btn-primary disabled:opacity-60">

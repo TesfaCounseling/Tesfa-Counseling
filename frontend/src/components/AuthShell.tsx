@@ -4,6 +4,7 @@ import Link from "next/link";
 import { BrandLogoLink } from "@/components/BrandLogo";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/components/LanguageProvider";
+import { AMHARIC_UI_ENABLED } from "@/lib/featureFlags";
 
 export default function AuthShell({
   title,
@@ -30,7 +31,7 @@ export default function AuthShell({
           </svg>
           <span>{t("nav.home")}</span>
         </Link>
-        <LanguageSwitcher compact />
+        {AMHARIC_UI_ENABLED ? <LanguageSwitcher compact /> : null}
       </header>
 
       <main className="relative flex flex-1 flex-col justify-center page-pad py-6 sm:py-10">

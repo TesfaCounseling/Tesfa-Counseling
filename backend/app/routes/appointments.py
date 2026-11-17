@@ -1,3 +1,4 @@
+import logging
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -25,6 +26,7 @@ from app.services.notifications import (
     notify_appointment_booked,
     notify_appointment_cancelled,
     notify_appointment_rescheduled,
+    notify_payment_receipt_uploaded,
 )
 from app.services.payment_instructions import generate_payment_reference, remittance_instructions
 from app.services.scheduling import assert_slot_available, generate_available_slots
@@ -38,6 +40,7 @@ from app.services.video import (
 from app.utils import ensure_client_org_membership, get_provider_organization_id, is_platform_admin, log_audit
 
 appointments_bp = Blueprint("appointments", __name__)
+logger = logging.getLogger(__name__)
 
 UNPRICED_DURATION_MESSAGE = "This counselor has not set a price for that session length."
 
@@ -503,6 +506,13 @@ def upload_payment_receipt(appointment_id):
     appt.payment_client_note = note[:500] or None
     log_audit("appointment.payment_receipt_uploaded", "appointment", str(appt.id), actor_id=user.id)
     db.session.commit()
+    try:
+        notify_payment_receipt_uploaded(appt, user, appt.provider)
+    except Exception:
+        logger.exception(
+            "Payment receipt notification failed for appointment %s (upload still saved)",
+            appt.id,
+        )
     return jsonify({"appointment": _appointment_to_dict(appt, user)})
 
 

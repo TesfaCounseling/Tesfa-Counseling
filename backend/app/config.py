@@ -2,6 +2,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from app.cors_util import parse_cors_origin_env
+
 _BACKEND_DIR = Path(__file__).resolve().parent.parent
 
 
@@ -84,11 +86,9 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     SQLALCHEMY_ENGINE_OPTIONS = _engine_options(database_url)
 
-    CORS_ORIGINS = [
-        origin.strip()
-        for origin in os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")
-        if origin.strip()
-    ]
+    CORS_ORIGINS = parse_cors_origin_env(
+        os.environ.get("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000")
+    )
 
     TELEGRAM_BOT_TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
     TELEGRAM_WEBHOOK_SECRET = os.environ.get("TELEGRAM_WEBHOOK_SECRET", "")

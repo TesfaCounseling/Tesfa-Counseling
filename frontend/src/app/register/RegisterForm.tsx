@@ -5,9 +5,11 @@ import { FormEvent, useEffect, useState } from "react";
 import AuthShell from "@/components/AuthShell";
 import { useLanguage } from "@/components/LanguageProvider";
 import TimezoneSelect from "@/components/TimezoneSelect";
+import { AMHARIC_UI_ENABLED } from "@/lib/featureFlags";
 import { type AppLanguage } from "@/lib/i18n";
 import { registerUser } from "@/lib/api";
 import { getBrowserTimezone } from "@/lib/format";
+import { isSafeNextPath, postLoginPath } from "@/lib/safeNext";
 
 type RegisterRole = "client" | "therapist";
 
@@ -22,8 +24,7 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
   const { t, language, setLanguage } = useLanguage();
   const roleParam = searchParams.get("role");
   const nextPath = searchParams.get("next");
-  const safeNext =
-    nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//") ? nextPath : "/dashboard";
+  const safeNext = postLoginPath(nextPath);
   const resolvedDefault: RegisterRole =
     roleParam === "client" || roleParam === "therapist" ? roleParam : defaultRole;
 
@@ -80,7 +81,7 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
         timezone: timezone.trim(),
       };
       if (role === "client") {
-        payload.preferred_language = preferredLanguage;
+        payload.preferred_language = AMHARIC_UI_ENABLED ? preferredLanguage : "en";
       } else {
         payload.organization_name = String(form.get("organization_name") || "");
         payload.languages = String(form.get("languages") || "").trim();
@@ -156,8 +157,8 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
           />
         </label>
 
-        {role === "client" && (
-          <label className="block text-sm font-medium text-ethio-ink">
+        {role === "client" && AMHARIC_UI_ENABLED && (
+          <label className="block text-base font-medium text-ethio-ink">
             {t("register.preferredLanguage")}
             <select
               value={preferredLanguage}
@@ -225,11 +226,11 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
           {loading ? t("common.pleaseWait") : copy.submitLabel}
         </button>
 
-        <p className="text-center text-sm text-ethio-ink-muted">
+        <p className="text-center text-base text-ethio-ink-muted">
           {t("register.alreadyHave")}{" "}
           <a
             href={
-              nextPath && nextPath.startsWith("/") && !nextPath.startsWith("//")
+              isSafeNextPath(nextPath)
                 ? `/login?next=${encodeURIComponent(nextPath)}`
                 : "/login"
             }

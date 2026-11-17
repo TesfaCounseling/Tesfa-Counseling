@@ -2,7 +2,7 @@
 
 > Living handoff doc. Update this file as work progresses so the next agent can continue without re-discovering decisions.
 >
-> **Last updated:** 2026-11-17 — booking grid uses saved client timezone; payout/settings pages; payment UX polish; unique page SEO
+> **Last updated:** 2026-11-17 — receipt-upload counselor email; English-only UI flag; login dashboards; book canonical; CORS deploy previews
 
 ---
 
@@ -78,7 +78,7 @@ Users only browse **:3000**. The frontend calls **:5050** via `NEXT_PUBLIC_API_U
 - [x] Telegram notification stub on book/cancel
 - [x] Reminders CLI: `flask send-reminders`
 - [x] Session pricing UI in **dollars** (stored as cents in DB); shows current rates
-- [x] **Diaspora remittance payment** — book → `payment_status=pending` + `TESFA-XXXX` → `/appointments/:id/pay` → receipt upload → counselor approve/reject; video join gated until verified; migration `o2a3b4c5d6e7f8`
+- [x] **Diaspora remittance payment** — book → `payment_status=pending` + `TESFA-XXXX` → `/appointments/:id/pay` → receipt upload → counselor is emailed (reference, client name, session time in counselor TZ, dashboard review link) → counselor approve/reject; a failed email is logged and does not fail the upload; video join gated until verified; migration `o2a3b4c5d6e7f8`
 
 ### Phase 3 — Video (production-ready)
 - [x] `video_room_name`, `video_room_url` on `Appointment` model
@@ -205,8 +205,9 @@ Role-based tabs via `AdminDashboardPanel`:
 - [x] Migrations run on Render deploy; manual shell used once for enum fixes (`g7`, `h8` migrations)
 
 ### i18n (Amharic / English)
-- [x] `frontend/src/lib/i18n.ts` — language toggle, `LANGUAGE_STORAGE_KEY`
+- [x] `frontend/src/lib/i18n.ts` — language toggle, `LANGUAGE_STORAGE_KEY` (translation files kept)
 - [x] Homepage, dashboard, booking, schedule alerts translated
+- [x] **Site UI is English-only unless `NEXT_PUBLIC_ENABLE_AMHARIC=true`** — hides `LanguageSwitcher` and account/register language pickers; stored Amharic preference is ignored while the flag is off
 
 ### Client feedback & schedule alerts
 - [x] `ClientFeedback` model + migration
@@ -272,7 +273,7 @@ Role-based tabs via `AdminDashboardPanel`:
 | — | Multi-currency pricing | USD only; counselor sets rate |
 | — | Sliding scale tiers at booking | Type exists; no tier UI |
 | — | Client country → currency display | Discussed; not built |
-| — | i18n UI | **Amharic + English** on key flows; not full app coverage |
+| — | i18n UI | Translations kept; **English-only UI** unless `NEXT_PUBLIC_ENABLE_AMHARIC=true` |
 | — | `GET /therapists/:id` | Book page still loads full list |
 | — | Optional intake for licensed counselors | Pending client decision |
 | — | Provider profile edit for existing counselors with blank languages | Manual/admin or re-save via UI |
@@ -374,7 +375,7 @@ Note: Tailwind classes use prefix `ethio-*` (legacy) — maps to **blue** brand,
 | Route | Type | Notes |
 |-------|------|--------|
 | `/` | Server | Home, mission card, Who we serve, feature cards |
-| `/login` | Client | Default redirect `?next=/dashboard`; **Forgot password?** link |
+| `/login` | Client | Safe `?next=` (single `/`, not `//` or a URL) first; else **`/dashboard`** (counselor vs client view). Never default to home. |
 | `/forgot-password` | Client | Request reset email (reveals if account exists) |
 | `/reset-password` | Client | Set new password from email token |
 | `/register`, `/register/client`, `/counselor`, `/trainee` | Client | Languages required for providers |
@@ -403,6 +404,7 @@ Note: Tailwind classes use prefix `ethio-*` (legacy) — maps to **blue** brand,
 NEXT_PUBLIC_API_URL=http://127.0.0.1:5050/api/v1
 NEXT_PUBLIC_APP_NAME=Tesfa Counseling
 NEXT_PUBLIC_BETA_FEEDBACK=true       # show Give Us Your Feedback widget
+NEXT_PUBLIC_ENABLE_AMHARIC=false     # omit or false = English only; true shows Amharic switch
 ```
 
 ---
@@ -568,6 +570,7 @@ ADMIN_PASSWORD=admin-change-me
 NEXT_PUBLIC_API_URL=http://127.0.0.1:5050/api/v1
 NEXT_PUBLIC_APP_NAME=Tesfa Counseling
 NEXT_PUBLIC_BETA_FEEDBACK=true       # show Give Us Your Feedback widget
+NEXT_PUBLIC_ENABLE_AMHARIC=false     # omit or false = English only
 ```
 
 ---
@@ -586,8 +589,7 @@ See **`DEPLOY.md`**. Summary:
 2. Netlify: frontend; `NEXT_PUBLIC_API_URL=https://tesfa-counseling.onrender.com/api/v1`; `NEXT_PUBLIC_BETA_FEEDBACK` in `netlify.toml`
 3. Run once: `python seed_admin.py`, `python migrate_client_org_links.py`
 4. Migrations run on deploy (`preDeployCommand`) **and** at API start (`flask db upgrade && gunicorn` in `render.yaml`)
-5. **CORS_ORIGINS** must include every frontend origin, e.g.:
-   `https://www.tesfacounseling.com,https://tesfacounseling.com,https://tesfa-counseling.netlify.app`
+5. **CORS_ORIGINS** should still list production hosts. The API also always allows those hosts plus Netlify deploy previews `https://deploy-preview-<n>--tesfa-counseling.netlify.app` (not a `*` wildcard).
 6. After env var changes on Render, **Restart service** — saving env alone does not reload workers
 7. **Netlify “Canceled”** on backend-only pushes is normal (no frontend file changes) — not a failure
 8. Verify: `GET /api/v1/health` → `testing_feedback_db_ready`, `brevo_api_key_set`, `smtp_configured`
@@ -624,7 +626,7 @@ See **`DEPLOY.md`**. Summary:
 25. **Remittance env** — without `PAYMENT_ACCOUNT_DETAILS` on Render, pay page shows a **client-facing** placeholder (never the developer “set this in Render” note)
 27. **Booking slot grid** — must format times with the saved `client_timezone` (`timeZone` option). Browser-local `toLocaleTimeString()` will show LA times for a Toronto client.
 26. **Netlify build** — duplicate exports / bad TranslationKey types fail deploy; fix and push; retry failed deploy on latest commit
-27. **SEO canonical** — always apex `https://tesfacounseling.com` plus the page path (`SITE_URL` in `frontend/src/lib/seo.ts`). Never set `alternates.canonical` or `og:url` to the homepage on a non-home page. Omit canonical on dynamic routes (`/counselors/[id]/book`, pay, note editor) rather than pointing them at `/`. `www` 301s to the bare domain, so do not use `www` in metadataBase, robots Host, or sitemap URLs.
+27. **SEO canonical** — always apex `https://tesfacounseling.com` plus the page path (`SITE_URL` in `frontend/src/lib/seo.ts`). Never set `alternates.canonical` or `og:url` to the homepage on a non-home page. `/counselors/<id>/book` sets its own canonical + `og:url` via `generateMetadata`. Other dynamic routes (pay, note editor) still omit canonical rather than pointing at `/`. `www` 301s to the bare domain.
 
 ---
 
@@ -1011,6 +1013,19 @@ See **`DEPLOY.md`**. Summary:
 - Book UI and API only offer/accept session lengths with an **active price** (no free 90-min fallback)
 - Counselor **Approve payment** shows spinner, disables both actions, blocks double submit
 - Client (and counselor) cards show **Paid · confirmed** after verification
+
+---
+
+### 2026-11-17 — Receipt email, English-only flag, login, SEO, CORS
+
+- Receipt upload emails the counselor via existing Brevo/SMTP (`notify_payment_receipt_uploaded`). No new email env vars. Upload still succeeds if send fails (logged).
+- Amharic UI switch is behind `NEXT_PUBLIC_ENABLE_AMHARIC=true` (default off / English only). Do not delete `i18n.ts` translations.
+- Login/register honor a safe same-site `?next=`; otherwise `/dashboard` (role-specific counselor vs client bookings). Open redirects rejected (`//`, full URLs).
+- `/counselors/<id>/book` canonical + `og:url` = `https://tesfacounseling.com/counselors/<id>/book`
+- Counselor dashboard shows the counselor’s own approval status (pending / approved / rejected / suspended)
+- Book page no longer says “Payment processing coming soon”
+- User-facing network errors no longer mention `start-backend.ps1` or “Cannot reach the API”
+- CORS allows production Tesfa hosts + `https://deploy-preview-<number>--tesfa-counseling.netlify.app` (no `*` wildcard)
 
 ---
 
