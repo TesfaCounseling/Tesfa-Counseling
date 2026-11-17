@@ -9,6 +9,7 @@ import SlotPicker, { SlotPickerSkeleton } from "@/components/SlotPicker";
 import {
   bookAppointment,
   getAppointment,
+  getMe,
   getProvider,
   getProviderPricing,
   getProviderSlots,
@@ -18,7 +19,7 @@ import {
   type ProviderPricing,
   type Slot,
 } from "@/lib/api";
-import { formatMoney, formatPricingType, getBrowserTimezone } from "@/lib/format";
+import { formatMoney, formatPricingType, getBrowserTimezone, resolveViewerTimezone } from "@/lib/format";
 
 const DURATIONS = [
   { minutes: 50, label: "50 min", desc: "Standard session" },
@@ -48,9 +49,9 @@ export default function BookCounselorPage() {
   const searchParams = useSearchParams();
   const rescheduleId = searchParams.get("reschedule");
   const providerId = String(params.id);
-  const clientTz = getBrowserTimezone();
   const isReschedule = Boolean(rescheduleId);
 
+  const [clientTz, setClientTz] = useState("");
   const [provider, setProvider] = useState<Provider | null>(null);
   const [pricingList, setPricingList] = useState<ProviderPricing[]>([]);
   const [slots, setSlots] = useState<Slot[]>([]);
@@ -61,6 +62,12 @@ export default function BookCounselorPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [booking, setBooking] = useState<string | null>(null);
+
+  useEffect(() => {
+    getMe()
+      .then((data) => setClientTz(resolveViewerTimezone(data.user.timezone)))
+      .catch(() => setClientTz(getBrowserTimezone()));
+  }, []);
 
   const currentPricing = useMemo(
     () => pricingList.find((p) => p.duration_minutes === duration),
@@ -74,6 +81,8 @@ export default function BookCounselorPage() {
   }, [duration, pricingList]);
 
   useEffect(() => {
+    if (!clientTz) return;
+
     const token = localStorage.getItem("access_token");
     if (!token) {
       const returnPath =

@@ -1,11 +1,13 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, Suspense, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import AuthShell from "@/components/AuthShell";
 import { useLanguage } from "@/components/LanguageProvider";
-import { isAppLanguage, type AppLanguage } from "@/lib/i18n";
+import TimezoneSelect from "@/components/TimezoneSelect";
+import { type AppLanguage } from "@/lib/i18n";
 import { registerUser } from "@/lib/api";
+import { getBrowserTimezone } from "@/lib/format";
 
 type RegisterRole = "client" | "therapist";
 
@@ -29,6 +31,7 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [preferredLanguage, setPreferredLanguage] = useState<AppLanguage>(language);
+  const [timezone, setTimezone] = useState("");
 
   useEffect(() => {
     setRole(resolvedDefault);
@@ -37,6 +40,10 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
   useEffect(() => {
     setPreferredLanguage(language);
   }, [language]);
+
+  useEffect(() => {
+    setTimezone(getBrowserTimezone());
+  }, []);
 
   const copy =
     role === "client"
@@ -64,6 +71,7 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
         first_name: String(form.get("first_name")),
         last_name: String(form.get("last_name")),
         role,
+        timezone: timezone || getBrowserTimezone(),
       };
       if (role === "client") {
         payload.preferred_language = preferredLanguage;
@@ -155,6 +163,17 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
             </select>
           </label>
         )}
+
+        {timezone ? (
+          <TimezoneSelect
+            value={timezone}
+            onChange={setTimezone}
+            label={role === "therapist" ? t("register.practiceTimezone") : t("register.timezone")}
+            hint={
+              role === "therapist" ? t("register.practiceTimezoneHint") : t("register.timezoneHint")
+            }
+          />
+        ) : null}
 
         {role === "therapist" && (
           <>

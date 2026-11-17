@@ -52,6 +52,8 @@ def _as_aware_utc(dt):
 
 
 def _user_to_dict(user: User) -> dict:
+    from app.timezone_utils import profile_timezone
+
     roles = [
         {"role": m.role.value, "organization_id": str(m.organization_id)}
         for m in user.memberships
@@ -78,6 +80,7 @@ def _user_to_dict(user: User) -> dict:
         "is_email_verified": user.is_email_verified,
         "account_type": account_type,
         "preferred_language": preferred_language,
+        "timezone": profile_timezone(user),
         "roles": roles,
     }
 
@@ -110,6 +113,8 @@ def register():
     if role not in VALID_REGISTER_ROLES:
         return jsonify({"error": "ValidationError", "message": "Role cannot be registered publicly"}), 400
 
+    from app.timezone_utils import normalize_timezone
+
     languages = (data.get("languages") or "").strip()
     specializations = (data.get("specializations") or "").strip()
     if role == UserRole.THERAPIST and not languages:
@@ -120,6 +125,8 @@ def register():
     if User.query.filter_by(email=email).first():
         return jsonify({"error": "Conflict", "message": "Email already registered"}), 409
 
+    timezone_name = normalize_timezone(data.get("timezone"))
+
     user = User(email=email, first_name=first_name, last_name=last_name)
     user.set_password(password)
     db.session.add(user)
@@ -129,18 +136,34 @@ def register():
         provider_org_name = organization_name or f"{first_name} {last_name}".strip() or "Independent Practice"
         organization = create_provider_organization(provider_org_name)
         db.session.add(OrganizationMember(organization_id=organization.id, user_id=user.id, role=role))
-        db.session.add(TherapistProfile(user_id=user.id, languages=languages, specializations=specializations))
+        db.session.add(
+            TherapistProfile(
+                user_id=user.id,
+                languages=languages,
+                specializations=specializations,
+                timezone=timezone_name,
+            )
+        )
     elif role == UserRole.TRAINEE:
         provider_org_name = organization_name or f"{first_name} {last_name}".strip() or "Independent Practice"
         organization = create_provider_organization(provider_org_name)
         db.session.add(OrganizationMember(organization_id=organization.id, user_id=user.id, role=role))
         program_name = (data.get("program_name") or "").strip() or None
-        db.session.add(TraineeProfile(user_id=user.id, languages=languages, program_name=program_name))
+        db.session.add(
+            TraineeProfile(
+                user_id=user.id,
+                languages=languages,
+                program_name=program_name,
+                timezone=timezone_name,
+            )
+        )
     elif role == UserRole.CLIENT:
         preferred_language = (data.get("preferred_language") or "en").strip().lower()
         if preferred_language not in ("en", "am"):
             preferred_language = "en"
-        db.session.add(ClientProfile(user_id=user.id, preferred_language=preferred_language))
+        db.session.add(
+            ClientProfile(user_id=user.id, preferred_language=preferred_language, timezone=timezone_name)
+        )
 
     consents = data.get("consents") or []
     for consent in consents:
@@ -350,6 +373,8 @@ def update_preferences():
     if not user or not user.is_active:
         return jsonify({"error": "Unauthorized", "message": "Invalid or inactive user"}), 401
 
+    from app.timezone_utils import normalize_timezone
+
     data = request.get_json(silent=True) or {}
     if "preferred_language" in data:
         lang = (data.get("preferred_language") or "en").strip().lower()
@@ -357,6 +382,15 @@ def update_preferences():
             return jsonify({"error": "ValidationError", "message": "Language must be en or am"}), 400
         if user.client_profile:
             user.client_profile.preferred_language = lang
+
+    if "timezone" in data:
+        timezone_name = normalize_timezone(data.get("timezone"))
+        if user.client_profile:
+            user.client_profile.timezone = timezone_name
+        elif user.therapist_profile:
+            user.therapist_profile.timezone = timezone_name
+        elif user.trainee_profile:
+            user.trainee_profile.timezone = timezone_name
 
     db.session.commit()
     return jsonify({"user": _user_to_dict(user)})

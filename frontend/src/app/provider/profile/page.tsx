@@ -6,6 +6,7 @@ import SiteHeader from "@/components/SiteHeader";
 import FeedbackPageLocationSetter from "@/components/FeedbackPageLocationSetter";
 import PageHero from "@/components/PageHero";
 import { ProviderAvatar } from "@/components/ProviderCard";
+import TimezoneSelect from "@/components/TimezoneSelect";
 import {
   deleteMyProviderPhoto,
   getMyProviderProfile,
@@ -13,6 +14,7 @@ import {
   uploadMyProviderPhoto,
   type ProviderProfile,
 } from "@/lib/api";
+import { getBrowserTimezone } from "@/lib/format";
 import { resolveProviderPhotoUrl } from "@/lib/providerUtils";
 
 function ProfileChecklist({ profile }: { profile: ProviderProfile }) {
@@ -48,6 +50,7 @@ export default function ProviderProfilePage() {
   const [localPhotoPreview, setLocalPhotoPreview] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [timezone, setTimezone] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -56,6 +59,7 @@ export default function ProviderProfilePage() {
         setProfile(data.profile);
         setFullName(data.user.full_name);
         setEmail(data.user.email);
+        setTimezone(data.profile.timezone || getBrowserTimezone());
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load profile"))
       .finally(() => setLoading(false));
@@ -71,6 +75,7 @@ export default function ProviderProfilePage() {
     try {
       const payload: Record<string, string> = {
         languages: String(form.get("languages") || "").trim(),
+        timezone: timezone || getBrowserTimezone(),
       };
       if (profile.type === "therapist") {
         payload.bio = String(form.get("bio") || "").trim();
@@ -82,6 +87,7 @@ export default function ProviderProfilePage() {
       }
       const result = await updateMyProviderProfile(payload);
       setProfile(result.profile);
+      setTimezone(result.profile.timezone || timezone || getBrowserTimezone());
       setSuccess(
         result.profile.public_profile_complete
           ? "Profile saved. Your photo and introduction are live on the main page."
@@ -222,6 +228,15 @@ export default function ProviderProfilePage() {
             Languages (comma-separated)
             <input name="languages" defaultValue={profile.languages || ""} required className="input-field" />
           </label>
+
+          {timezone ? (
+            <TimezoneSelect
+              value={timezone}
+              onChange={setTimezone}
+              label="Practice timezone"
+              hint="Weekly hours and client bookings use this timezone. Ethiopia counselors usually choose Africa/Addis Ababa."
+            />
+          ) : null}
 
           {profile.type === "therapist" ? (
             <>

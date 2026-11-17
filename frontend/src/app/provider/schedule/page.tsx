@@ -5,12 +5,15 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
 import FeedbackPageLocationSetter from "@/components/FeedbackPageLocationSetter";
+import TimezoneSelect from "@/components/TimezoneSelect";
 import { getBrowserTimezone } from "@/lib/format";
 import {
   createAvailabilityRule,
   deleteAvailabilityRule,
+  getMyProviderProfile,
   listAvailabilityRules,
   listSessionPricing,
+  updateMyProviderProfile,
   upsertPricing,
   type AvailabilityRule,
   type SessionPricing,
@@ -34,14 +37,19 @@ export default function ProviderSchedulePage() {
   const [message, setMessage] = useState("");
   const [timezone, setTimezone] = useState("");
 
-  useEffect(() => {
-    setTimezone(getBrowserTimezone());
-  }, []);
-
   async function loadAll() {
-    const [rulesData, pricingData] = await Promise.all([listAvailabilityRules(), listSessionPricing()]);
+    const [rulesData, pricingData, profileData] = await Promise.all([
+      listAvailabilityRules(),
+      listSessionPricing(),
+      getMyProviderProfile(),
+    ]);
     setRules(rulesData.rules);
     setPricing(pricingData.pricing);
+    const practiceTz =
+      profileData.profile.timezone ||
+      rulesData.rules[0]?.timezone ||
+      getBrowserTimezone();
+    setTimezone(practiceTz);
   }
 
   useEffect(() => {
@@ -58,15 +66,17 @@ export default function ProviderSchedulePage() {
     setMessage("");
     const formEl = e.currentTarget;
     const form = new FormData(formEl);
+    const practiceTz = timezone || getBrowserTimezone();
     try {
+      await updateMyProviderProfile({ timezone: practiceTz });
       await createAvailabilityRule({
         day_of_week: Number(form.get("day_of_week")),
         start_time: String(form.get("start_time")),
         end_time: String(form.get("end_time")),
-        timezone: String(form.get("timezone") || timezone || getBrowserTimezone()),
+        timezone: practiceTz,
       });
       formEl.reset();
-      setTimezone(getBrowserTimezone());
+      setTimezone(practiceTz);
       await loadAll();
       setMessage("Availability saved.");
     } catch (err) {
@@ -134,20 +144,14 @@ export default function ProviderSchedulePage() {
               <input name="end_time" type="time" defaultValue="17:00" required className="input-field" />
             </label>
           </div>
-          <label className="block text-sm font-medium">
-            Timezone
-            <input
-              name="timezone"
+          {timezone ? (
+            <TimezoneSelect
               value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
-              placeholder="Detecting your timezone…"
-              className="input-field"
-              required
+              onChange={setTimezone}
+              label="Practice timezone"
+              hint="Hours are in this timezone. Clients see the same slots converted to their own timezone."
             />
-            <span className="mt-1 block text-xs font-normal text-ethio-ink-muted">
-              Defaults to your device timezone. Change this if your practice hours are in a different region.
-            </span>
-          </label>
+          ) : null}
           <button type="submit" className="btn-primary">
             Add hours
           </button>

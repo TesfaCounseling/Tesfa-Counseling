@@ -4,7 +4,7 @@ from flask import Blueprint, jsonify, make_response, request
 from flask_jwt_extended import jwt_required
 
 from app.extensions import db
-from app.models import User
+from app.models import AvailabilityRule, User
 from app.provider_profile_utils import (
     ALLOWED_PHOTO_MIME_TYPES,
     MAX_PHOTO_BYTES,
@@ -12,9 +12,17 @@ from app.provider_profile_utils import (
     provider_my_photo_path,
     therapist_public_profile_complete,
 )
+from app.timezone_utils import normalize_timezone
 from app.utils import get_current_user, log_audit
 
 providers_bp = Blueprint("providers", __name__)
+
+
+def _sync_practice_timezone(user: User, timezone_name: str) -> None:
+    """Keep active availability rules aligned with the practice timezone."""
+    AvailabilityRule.query.filter_by(provider_id=user.id, is_active=True).update(
+        {"timezone": timezone_name}, synchronize_session=False
+    )
 
 
 def _profile_response(user: User) -> dict | None:
@@ -26,6 +34,7 @@ def _profile_response(user: User) -> dict | None:
             "bio": profile.bio,
             "specializations": profile.specializations,
             "languages": profile.languages,
+            "timezone": profile.timezone,
             "license_number": profile.license_number,
             "license_authority": profile.license_authority,
             "approval_status": profile.approval_status.value,
@@ -46,6 +55,7 @@ def _profile_response(user: User) -> dict | None:
             "profile_id": str(profile.id),
             "program_name": profile.program_name,
             "languages": profile.languages,
+            "timezone": profile.timezone,
             "approval_status": profile.approval_status.value,
             "supervisor_id": str(profile.supervisor_id) if profile.supervisor_id else None,
             "supervisor_name": supervisor_name,
@@ -92,6 +102,10 @@ def update_my_profile():
             profile.license_number = (data.get("license_number") or "").strip() or None
         if "license_authority" in data:
             profile.license_authority = (data.get("license_authority") or "").strip() or None
+        if "timezone" in data:
+            timezone_name = normalize_timezone(data.get("timezone"))
+            profile.timezone = timezone_name
+            _sync_practice_timezone(user, timezone_name)
     elif user.trainee_profile:
         profile = user.trainee_profile
         if "program_name" in data:
@@ -101,6 +115,10 @@ def update_my_profile():
             if not languages:
                 return jsonify({"error": "ValidationError", "message": "Languages are required"}), 400
             profile.languages = languages
+        if "timezone" in data:
+            timezone_name = normalize_timezone(data.get("timezone"))
+            profile.timezone = timezone_name
+            _sync_practice_timezone(user, timezone_name)
     else:
         return jsonify({"error": "Not Found", "message": "No provider profile for this account"}), 404
 

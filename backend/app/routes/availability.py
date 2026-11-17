@@ -66,20 +66,29 @@ def create_rule():
     if not user:
         return jsonify({"error": "Unauthorized"}), 401
 
+    from app.timezone_utils import normalize_timezone, profile_timezone
+
     data = request.get_json(silent=True) or {}
+    practice_tz = profile_timezone(user) or "UTC"
+    timezone_name = normalize_timezone(data.get("timezone") or practice_tz, default=practice_tz)
     try:
         rule = AvailabilityRule(
             provider_id=user.id,
             day_of_week=int(data["day_of_week"]),
             start_time=parse_time(data["start_time"]),
             end_time=parse_time(data["end_time"]),
-            timezone=data.get("timezone", "UTC"),
+            timezone=timezone_name,
         )
     except (KeyError, ValueError, TypeError):
         return jsonify({"error": "ValidationError", "message": "Invalid availability rule"}), 400
 
     if rule.start_time >= rule.end_time:
         return jsonify({"error": "ValidationError", "message": "End time must be after start time"}), 400
+
+    if user.therapist_profile and not user.therapist_profile.timezone:
+        user.therapist_profile.timezone = timezone_name
+    elif user.trainee_profile and not user.trainee_profile.timezone:
+        user.trainee_profile.timezone = timezone_name
 
     db.session.add(rule)
     log_audit("availability.created", "availability_rule", actor_id=user.id)

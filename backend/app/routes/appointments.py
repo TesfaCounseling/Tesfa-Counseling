@@ -366,9 +366,18 @@ def book_appointment():
     if provider.trainee_profile and provider.trainee_profile.supervisor_id:
         supervisor_id = provider.trainee_profile.supervisor_id
 
-    client_tz = data.get("client_timezone") or (user.client_profile.timezone if user.client_profile else "UTC")
-    rule = AvailabilityRule.query.filter_by(provider_id=provider_id, is_active=True).first()
-    provider_tz = rule.timezone if rule else "UTC"
+    from app.timezone_utils import normalize_timezone, profile_timezone
+
+    client_tz = normalize_timezone(
+        data.get("client_timezone") or (user.client_profile.timezone if user.client_profile else None)
+    )
+    if user.client_profile and not user.client_profile.timezone:
+        user.client_profile.timezone = client_tz
+    provider_tz = profile_timezone(provider)
+    if not provider_tz:
+        rule = AvailabilityRule.query.filter_by(provider_id=provider_id, is_active=True).first()
+        provider_tz = rule.timezone if rule else "UTC"
+    provider_tz = normalize_timezone(provider_tz)
 
     session_mode_raw = data.get("session_mode", "video")
     try:
@@ -665,12 +674,16 @@ def complete_appointment(appointment_id):
 @appointments_bp.route("/providers/<uuid:provider_id>/slots", methods=["GET"])
 @jwt_required()
 def provider_slots(provider_id):
+    from app.timezone_utils import normalize_timezone, profile_timezone
+
     duration = int(request.args.get("duration_minutes", 50))
-    client_tz = request.args.get("client_timezone", "UTC")
+    user = _get_user()
+    client_tz = request.args.get("client_timezone") or (profile_timezone(user) if user else None) or "UTC"
+    client_tz = normalize_timezone(client_tz)
 
     provider = db.session.get(User, provider_id)
     if not provider or not _provider_is_bookable(provider):
         return jsonify({"error": "Not Found"}), 404
 
     slots = generate_available_slots(provider_id, duration, client_tz)
-    return jsonify({"slots": slots, "duration_minutes": duration})
+    return jsonify({"slots": slots, "duration_minutes": duration, "client_timezone": client_tz})

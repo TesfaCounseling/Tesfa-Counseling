@@ -12,6 +12,7 @@ export interface AuthUser {
   is_email_verified: boolean;
   account_type?: "therapist" | "trainee" | "client" | null;
   preferred_language?: string | null;
+  timezone?: string | null;
   roles: { role: string; organization_id: string }[];
 }
 
@@ -94,6 +95,7 @@ export interface ProviderProfile {
   bio?: string | null;
   specializations?: string | null;
   languages?: string | null;
+  timezone?: string | null;
   license_number?: string | null;
   license_authority?: string | null;
   program_name?: string | null;
@@ -232,6 +234,7 @@ export function registerUser(payload: {
   specializations?: string;
   program_name?: string;
   preferred_language?: string;
+  timezone?: string;
 }) {
   return apiFetch<AuthResponse>("/auth/register", {
     method: "POST",
@@ -268,6 +271,14 @@ export function updatePreferredLanguage(language: "en" | "am") {
   return apiFetch<{ user: AuthUser }>(
     "/auth/me/preferences",
     { method: "PATCH", body: JSON.stringify({ preferred_language: language }) },
+    true
+  );
+}
+
+export function updateMyTimezone(timezone: string) {
+  return apiFetch<{ user: AuthUser }>(
+    "/auth/me/preferences",
+    { method: "PATCH", body: JSON.stringify({ timezone }) },
     true
   );
 }

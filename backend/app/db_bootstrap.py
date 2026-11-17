@@ -10,6 +10,27 @@ from app.extensions import db
 logger = logging.getLogger(__name__)
 
 
+def ensure_provider_timezone_schema() -> None:
+    """Add practice timezone columns when migration has not run yet."""
+    bind = db.engine
+    inspector = inspect(bind)
+    tables = inspector.get_table_names()
+    for table in ("therapist_profiles", "trainee_profiles"):
+        if table not in tables:
+            continue
+        columns = {col["name"] for col in inspector.get_columns(table)}
+        if "timezone" in columns:
+            continue
+        logger.warning("%s.timezone missing — applying bootstrap SQL", table)
+        try:
+            with bind.begin() as conn:
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN timezone VARCHAR(64)"))
+            logger.info("%s.timezone bootstrap complete", table)
+        except Exception as exc:
+            # Concurrent boot / already applied
+            logger.warning("%s.timezone bootstrap skipped: %s", table, exc)
+
+
 def ensure_password_reset_schema() -> None:
     """Create password_reset_tokens if missing (local SQLite or skipped migrate)."""
     from app.models import PasswordResetToken

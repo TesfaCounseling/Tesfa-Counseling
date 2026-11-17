@@ -1,3 +1,22 @@
+/** Common IANA zones for Ethiopia + diaspora booking. */
+export const COMMON_TIMEZONES = [
+  "Africa/Addis_Ababa",
+  "America/New_York",
+  "America/Chicago",
+  "America/Denver",
+  "America/Los_Angeles",
+  "America/Phoenix",
+  "America/Toronto",
+  "America/Vancouver",
+  "Europe/London",
+  "Europe/Berlin",
+  "Europe/Paris",
+  "Asia/Dubai",
+  "Asia/Riyadh",
+  "Australia/Sydney",
+  "UTC",
+] as const;
+
 /** Parse API datetimes as UTC instants (SQLite often omits timezone suffix). */
 export function getBrowserTimezone(): string {
   try {
@@ -5,6 +24,18 @@ export function getBrowserTimezone(): string {
   } catch {
     return "UTC";
   }
+}
+
+/** Prefer a saved profile timezone; fall back to the browser. */
+export function resolveViewerTimezone(saved?: string | null): string {
+  const trimmed = (saved || "").trim();
+  return trimmed || getBrowserTimezone();
+}
+
+export function timezoneOptions(preferred?: string | null): string[] {
+  const browser = getBrowserTimezone();
+  const preferredTrimmed = (preferred || "").trim();
+  return Array.from(new Set([preferredTrimmed, browser, ...COMMON_TIMEZONES].filter(Boolean)));
 }
 
 export function parseUtcIso(iso: string): Date {

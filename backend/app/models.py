@@ -120,6 +120,7 @@ class TherapistProfile(db.Model):
     bio: Mapped[str | None] = mapped_column(db.Text)
     specializations: Mapped[str | None] = mapped_column(db.Text)
     languages: Mapped[str | None] = mapped_column(db.String(255))
+    timezone: Mapped[str | None] = mapped_column(db.String(64))
     license_number: Mapped[str | None] = mapped_column(db.String(100))
     license_authority: Mapped[str | None] = mapped_column(db.String(255))
     photo_mime_type: Mapped[str | None] = mapped_column(db.String(64))
@@ -147,6 +148,7 @@ class TraineeProfile(db.Model):
     )
     program_name: Mapped[str | None] = mapped_column(db.String(255))
     languages: Mapped[str | None] = mapped_column(db.String(255))
+    timezone: Mapped[str | None] = mapped_column(db.String(64))
     expected_graduation: Mapped[datetime | None] = mapped_column(db.DateTime(timezone=True))
     supervisor_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), db.ForeignKey("users.id", ondelete="SET NULL")
