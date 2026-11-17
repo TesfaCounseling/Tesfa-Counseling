@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import AuthShell from "@/components/AuthShell";
@@ -40,6 +40,7 @@ export default function AppointmentPayPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const noteDirtyRef = useRef(false);
 
   useEffect(() => {
     if (!hasAuthSession()) {
@@ -52,6 +53,12 @@ export default function AppointmentPayPage() {
       .then((data) => {
         setAppointment(data.appointment);
         setInstructions(data.instructions);
+        setNote((current) => {
+          if (noteDirtyRef.current || current.trim() !== "") return current;
+          const saved = data.appointment.payment_client_note?.trim();
+          if (saved) return saved;
+          return data.appointment.payment_reference?.trim() || "";
+        });
       })
       .catch((err) => setError(err instanceof Error ? err.message : t("pay.loadError")))
       .finally(() => setLoading(false));
@@ -81,7 +88,7 @@ export default function AppointmentPayPage() {
   if (loading) {
     return (
       <AuthShell title={t("pay.title")} subtitle={t("common.loading")}>
-        <p className="text-sm text-ethio-ink-muted">{t("common.pleaseWait")}</p>
+        <p className="text-base text-ethio-ink-muted">{t("common.pleaseWait")}</p>
       </AuthShell>
     );
   }
@@ -90,7 +97,7 @@ export default function AppointmentPayPage() {
     return (
       <AuthShell title={t("pay.title")} subtitle={t("pay.loadError")}>
         <p className="alert-error">{error || t("pay.loadError")}</p>
-        <p className="mt-4 text-center text-sm">
+        <p className="mt-4 text-center text-base">
           <Link href="/dashboard" className="link-inline">
             {t("nav.dashboard")}
           </Link>
@@ -105,8 +112,8 @@ export default function AppointmentPayPage() {
 
   return (
     <AuthShell title={t("pay.title")} subtitle={t("pay.subtitle")}>
-      <div className="space-y-5">
-        <div className="rounded-xl bg-ethio-surface p-4 text-sm text-ethio-ink">
+      <div className="min-w-0 space-y-5 overflow-x-hidden text-base">
+        <div className="rounded-xl bg-ethio-surface p-4 text-base text-ethio-ink">
           <p className="font-semibold">{appointment.provider_name || t("dashboard.providerFallback")}</p>
           <p className="mt-1 text-ethio-ink-muted">
             {appointment.client_local_display || appointment.starts_at} · {appointment.duration_minutes}{" "}
@@ -118,10 +125,10 @@ export default function AppointmentPayPage() {
           {appointment.payment_reference && (
             <p className="mt-2">
               {t("pay.reference")}:{" "}
-              <span className="font-mono font-bold tracking-wide">{appointment.payment_reference}</span>
+              <span className="break-all font-mono font-bold tracking-wide">{appointment.payment_reference}</span>
             </p>
           )}
-          <p className="mt-2 text-xs uppercase tracking-wide text-ethio-ink-muted">
+          <p className="mt-2 text-base uppercase tracking-wide text-ethio-ink-muted">
             {t(`pay.status.${status}` as "pay.status.pending")}
           </p>
         </div>
@@ -132,24 +139,24 @@ export default function AppointmentPayPage() {
           </p>
         ) : (
           <>
-            <section className="space-y-2 text-sm text-ethio-ink">
+            <section className="space-y-2 text-base text-ethio-ink">
               <h2 className="font-bold">{t("pay.sendTo")}</h2>
               <p className="font-semibold">{instructions.account_name}</p>
               {instructions.account_details_configured ? (
-                <pre className="whitespace-pre-wrap rounded-lg bg-ethio-surface p-3 font-sans text-sm text-ethio-ink">
+                <pre className="whitespace-pre-wrap break-words rounded-lg bg-ethio-surface p-3 font-sans text-base text-ethio-ink">
                   {instructions.account_details}
                 </pre>
               ) : (
-                <p className="rounded-lg bg-ethio-surface p-3 text-sm text-ethio-ink-muted">
+                <p className="rounded-lg bg-ethio-surface p-3 text-base text-ethio-ink-muted">
                   {t("pay.accountDetailsPending")}
                 </p>
               )}
               <p className="text-ethio-ink-muted">{instructions.notes}</p>
-              <p className="text-xs text-ethio-ink-muted">
+              <p className="text-base text-ethio-ink-muted">
                 {t("pay.acceptedMethods")}: {instructions.accepted_methods.join(", ")}
               </p>
               {instructions.local_methods_coming_soon && (
-                <p className="text-xs text-ethio-ink-muted">{t("pay.localComingSoon")}</p>
+                <p className="text-base text-ethio-ink-muted">{t("pay.localComingSoon")}</p>
               )}
             </section>
 
@@ -164,8 +171,8 @@ export default function AppointmentPayPage() {
                 {t("pay.waitingReview")}
               </p>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <label className="block text-sm font-medium text-ethio-ink">
+              <form onSubmit={handleSubmit} className="min-w-0 space-y-4">
+                <label className="block text-base font-medium text-ethio-ink">
                   {t("pay.method")}
                   <select
                     className="input-field"
@@ -179,7 +186,7 @@ export default function AppointmentPayPage() {
                     ))}
                   </select>
                 </label>
-                <label className="block text-sm font-medium text-ethio-ink">
+                <label className="block text-base font-medium text-ethio-ink">
                   {t("pay.receipt")}
                   <input
                     type="file"
@@ -189,13 +196,16 @@ export default function AppointmentPayPage() {
                     required
                   />
                 </label>
-                <label className="block text-sm font-medium text-ethio-ink">
+                <label className="block text-base font-medium text-ethio-ink">
                   {t("pay.notesOptional")}
                   <input
                     value={note}
-                    onChange={(e) => setNote(e.target.value)}
+                    onChange={(e) => {
+                      noteDirtyRef.current = true;
+                      setNote(e.target.value);
+                    }}
                     maxLength={500}
-                    className="input-field"
+                    className="input-field text-base"
                     placeholder={t("pay.notesHint")}
                   />
                 </label>
@@ -217,7 +227,7 @@ export default function AppointmentPayPage() {
           </>
         )}
 
-        <p className="text-center text-sm text-ethio-ink-muted">
+        <p className="text-center text-base text-ethio-ink-muted">
           <Link href="/dashboard" className="link-inline">
             {t("pay.backDashboard")}
           </Link>

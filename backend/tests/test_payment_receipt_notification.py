@@ -64,13 +64,16 @@ def _seed_paid_appointment(app, client_id, provider_id, reference="TESFA-AB12"):
         return str(appt.id)
 
 
-def _upload(client, appointment_id, token):
+def _upload(client, appointment_id, token, note=None):
+    data = {
+        "payment_method": "wise",
+        "receipt": (BytesIO(b"%PDF-1.4 receipt"), "receipt.pdf", "application/pdf"),
+    }
+    if note is not None:
+        data["payment_note"] = note
     return client.post(
         f"/api/v1/appointments/{appointment_id}/payment/receipt",
-        data={
-            "payment_method": "wise",
-            "receipt": (BytesIO(b"%PDF-1.4 receipt"), "receipt.pdf", "application/pdf"),
-        },
+        data=data,
         content_type="multipart/form-data",
         headers={"Authorization": f"Bearer {token}"},
     )
@@ -109,3 +112,53 @@ def test_receipt_upload_succeeds_when_email_raises(client, app, caplog):
     assert response.status_code == 200, response.get_json()
     assert response.get_json()["appointment"]["payment_status"] == "submitted"
     assert "Payment receipt notification failed" in caplog.text
+
+
+def test_payment_note_saved_with_receipt_and_kept_after_approve(client, app):
+    therapist = _register(client, "therapist")
+    client_user = _register(client, "client")
+    reference = "TESFA-XY12"
+    appt_id = _seed_paid_appointment(
+        app, client_user["user"]["id"], therapist["user"]["id"], reference
+    )
+    note = reference
+
+    uploaded = _upload(client, appt_id, client_user["access_token"], note=note)
+    assert uploaded.status_code == 200, uploaded.get_json()
+    uploaded_appt = uploaded.get_json()["appointment"]
+    assert uploaded_appt["payment_client_note"] == note
+    assert uploaded_appt["payment_reference"] == reference
+    assert uploaded_appt["payment_status"] == "submitted"
+
+    with app.app_context():
+        stored = db.session.get(Appointment, uuid.UUID(appt_id))
+        assert stored is not None
+        assert stored.payment_client_note == note
+        assert stored.payment_reference == reference
+
+    payment = client.get(
+        f"/api/v1/appointments/{appt_id}/payment",
+        headers={"Authorization": f"Bearer {client_user['access_token']}"},
+    )
+    assert payment.status_code == 200
+    assert payment.get_json()["appointment"]["payment_client_note"] == note
+
+    approved = client.post(
+        f"/api/v1/appointments/{appt_id}/payment/verify",
+        json={"action": "approve"},
+        headers={"Authorization": f"Bearer {therapist['access_token']}"},
+    )
+    assert approved.status_code == 200, approved.get_json()
+    approved_appt = approved.get_json()["appointment"]
+    assert approved_appt["payment_status"] == "verified"
+    assert approved_appt["payment_client_note"] == note
+    assert approved_appt["payment_reference"] == reference
+
+    listed = client.get(
+        "/api/v1/appointments",
+        headers={"Authorization": f"Bearer {therapist['access_token']}"},
+    )
+    assert listed.status_code == 200
+    match = next(a for a in listed.get_json()["appointments"] if a["id"] == appt_id)
+    assert match["payment_client_note"] == note
+    assert match["payment_status"] == "verified"
