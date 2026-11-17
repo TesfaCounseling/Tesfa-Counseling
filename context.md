@@ -2,7 +2,7 @@
 
 > Living handoff doc. Update this file as work progresses so the next agent can continue without re-discovering decisions.
 >
-> **Last updated:** 2026-11-17 — counselor View Receipt / Approve / Reject as three real buttons
+> **Last updated:** 2026-11-17 — counselor Edit Profile photo moved to top of form
 
 ---
 
@@ -1041,6 +1041,7 @@ See **`DEPLOY.md`**. Summary:
 - Client: same-style top banner — “Upload your payment receipt” (link to pay page) for pending/rejected; “Awaiting counselor verification” after upload. Hidden when none pending
 - No dedicated admin payments inbox; counselor session list still has reference search
 - Counselor payment actions (card + top banner): three real buttons in one row — **View Receipt** (`btn-cta`, largest), **Approve Payment** (`btn-primary`), **Reject** (`btn-danger`). Stack on 390px in that order; Approve spinner/disabled unchanged
+- Counselor **Edit profile**: photo preview + upload/change/remove is the first block in the form (upload behavior unchanged)
 
 ---
 
