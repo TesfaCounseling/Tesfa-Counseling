@@ -1,4 +1,6 @@
 import logging
+import os
+import re
 import uuid
 from datetime import datetime, timedelta, timezone
 
@@ -52,6 +54,14 @@ ALLOWED_RECEIPT_MIME = {
     "image/gif",
     "application/pdf",
 }
+RECEIPT_MIME_EXTENSIONS = {
+    "image/jpeg": ".jpg",
+    "image/png": ".png",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "application/pdf": ".pdf",
+}
+ALLOWED_RECEIPT_EXTENSIONS = set(RECEIPT_MIME_EXTENSIONS.values()) | {".jpeg"}
 DIASPORA_PAYMENT_METHODS = {
     "remitly",
     "taptap",
@@ -116,6 +126,49 @@ def _unique_payment_reference() -> str:
     return generate_payment_reference()
 
 
+def _sanitize_payment_reference_token(reference: str | None) -> str:
+    token = re.sub(r"[^A-Za-z0-9\-]", "", (reference or "").strip())
+    return token[:32] or "TESFA"
+
+
+def _receipt_extension(original_filename: str | None, mime_type: str | None) -> str:
+    _, ext = os.path.splitext(original_filename or "")
+    ext = ext.lower()
+    if ext == ".jpeg":
+        ext = ".jpg"
+    if ext in ALLOWED_RECEIPT_EXTENSIONS:
+        return ".jpg" if ext == ".jpeg" else ext
+    return RECEIPT_MIME_EXTENSIONS.get((mime_type or "").lower(), ".bin")
+
+
+def stored_receipt_filename(
+    reference: str | None,
+    original_filename: str | None,
+    mime_type: str | None,
+    appointment_id,
+) -> str:
+    """TESFA-XXXXXX_receipt.png — keep extension, sanitize, avoid collisions."""
+    ref = _sanitize_payment_reference_token(reference)
+    ext = _receipt_extension(original_filename, mime_type)
+    base = f"{ref}_receipt"
+    candidate = f"{base}{ext}"
+    suffix = 2
+    while Appointment.query.filter(
+        Appointment.payment_receipt_filename == candidate,
+        Appointment.id != appointment_id,
+    ).first():
+        candidate = f"{base}_{suffix}{ext}"
+        suffix += 1
+        if suffix > 99:
+            candidate = f"{base}_{uuid.uuid4().hex[:6]}{ext}"
+            break
+    return candidate[:255]
+
+
+def _escape_like(term: str) -> str:
+    return term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _appointment_to_dict(appt: Appointment, user: User | None = None) -> dict:
     now = datetime.now(timezone.utc)
     has_video = bool(appt.video_room_url)
@@ -145,6 +198,7 @@ def _appointment_to_dict(appt: Appointment, user: User | None = None) -> dict:
         "payment_reference": appt.payment_reference,
         "payment_method": appt.payment_method,
         "payment_receipt_uploaded": appt.has_payment_receipt,
+        "payment_receipt_filename": appt.payment_receipt_filename,
         "payment_submitted_at": to_iso_utc(appt.payment_submitted_at) if appt.payment_submitted_at else None,
         "payment_verified_at": to_iso_utc(appt.payment_verified_at) if appt.payment_verified_at else None,
         "payment_rejection_reason": appt.payment_rejection_reason,
@@ -218,6 +272,11 @@ def list_appointments():
         query = query.filter(
             db.or_(Appointment.client_id == user.id, Appointment.provider_id == user.id)
         )
+
+    reference_q = (request.args.get("q") or "").strip()
+    if reference_q:
+        pattern = f"%{_escape_like(reference_q)}%"
+        query = query.filter(Appointment.payment_reference.ilike(pattern, escape="\\"))
 
     if request.args.get("upcoming") == "true":
         now = datetime.now(timezone.utc)
@@ -497,7 +556,9 @@ def upload_payment_receipt(appointment_id):
         appt.payment_reference = _unique_payment_reference()
     note = (request.form.get("payment_note") or request.form.get("notes") or "").strip()
     appt.payment_method = method
-    appt.payment_receipt_filename = upload.filename[:255]
+    appt.payment_receipt_filename = stored_receipt_filename(
+        appt.payment_reference, upload.filename, mime_type, appt.id
+    )
     appt.payment_receipt_mime_type = mime_type
     appt.payment_receipt_data = receipt_data
     appt.payment_submitted_at = utcnow()
@@ -529,7 +590,7 @@ def get_payment_receipt(appointment_id):
         return jsonify({"error": "Not Found", "message": "No receipt uploaded"}), 404
     response = make_response(appt.payment_receipt_data)
     response.headers["Content-Type"] = appt.payment_receipt_mime_type
-    filename = appt.payment_receipt_filename or "receipt"
+    filename = (appt.payment_receipt_filename or "receipt").replace('"', "")
     response.headers["Content-Disposition"] = f'inline; filename="{filename}"'
     return response
 

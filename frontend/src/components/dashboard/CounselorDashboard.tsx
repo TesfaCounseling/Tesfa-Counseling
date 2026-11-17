@@ -41,6 +41,7 @@ export default function CounselorDashboard({
   const [paymentBusyId, setPaymentBusyId] = useState<string | null>(null);
   const paymentBusyRef = useRef(false);
   const [paymentError, setPaymentError] = useState("");
+  const [referenceQuery, setReferenceQuery] = useState("");
 
   useEffect(() => {
     if (!user?.id) return;
@@ -61,7 +62,13 @@ export default function CounselorDashboard({
             ? t("dashboard.approval.pending")
             : "";
 
-  const providerAppointments = appointments.filter((appt) => appt.provider_id === user?.id);
+  const allProviderAppointments = appointments.filter((appt) => appt.provider_id === user?.id);
+  const referenceNeedle = referenceQuery.trim().toLowerCase();
+  const providerAppointments = referenceNeedle
+    ? allProviderAppointments.filter((appt) =>
+        (appt.payment_reference || "").toLowerCase().includes(referenceNeedle)
+      )
+    : allProviderAppointments;
 
   async function openReceipt(id: string) {
     const token = localStorage.getItem("access_token");
@@ -169,13 +176,24 @@ export default function CounselorDashboard({
       </div>
 
       <ClientScheduleAlerts
-        appointments={providerAppointments}
+        appointments={allProviderAppointments}
         onDismiss={onDismissScheduleAlert}
         perspective="provider"
       />
 
       <section className="mt-10">
         <h2 className="text-lg font-bold text-ethio-ink">Upcoming sessions</h2>
+        <label className="mt-3 block min-w-0 text-base font-medium text-ethio-ink">
+          {t("pay.searchByReference")}
+          <input
+            type="search"
+            value={referenceQuery}
+            onChange={(e) => setReferenceQuery(e.target.value)}
+            placeholder="TESFA-XXXXXX"
+            className="input-field text-base"
+            autoComplete="off"
+          />
+        </label>
         {paymentError && <p className="mt-3 alert-error">{paymentError}</p>}
         {loadingSessions && <p className="mt-3 text-sm text-ethio-ink-muted">Loading sessions…</p>}
         {error && (
@@ -211,8 +229,8 @@ export default function CounselorDashboard({
                 appt.payment_status !== "not_required" &&
                 (appt.payment_status !== "verified" ||
                   Boolean(appt.payment_method || appt.payment_reference || appt.payment_receipt_uploaded)) && (
-                <div className="mt-3 rounded-xl bg-ethio-surface p-3 text-sm text-ethio-ink">
-                  <p className="text-xs font-bold uppercase tracking-wide text-ethio-ink-muted">
+                <div className="mt-3 min-w-0 overflow-x-hidden rounded-xl bg-ethio-surface p-3 text-base text-ethio-ink">
+                  <p className="text-base font-bold uppercase tracking-wide text-ethio-ink-muted">
                     {t("pay.paymentRecord")}
                   </p>
                   <p className="mt-1 font-semibold text-ethio-green-dark">
@@ -227,23 +245,30 @@ export default function CounselorDashboard({
                       {t("pay.methodLabel")}: {formatPaymentMethod(appt.payment_method)}
                     </p>
                   )}
-                  {appt.payment_reference && (
-                    <p className="mt-1">
-                      {t("pay.reference")}:{" "}
-                      <span className="font-mono font-bold tracking-wide">{appt.payment_reference}</span>
-                    </p>
-                  )}
                   {appt.payment_client_note && (
-                    <p className="mt-1 text-ethio-ink-muted">{appt.payment_client_note}</p>
+                    <p className="mt-1 break-words text-ethio-ink-muted">{appt.payment_client_note}</p>
                   )}
-                  {appt.payment_receipt_uploaded && (
-                    <button
-                      type="button"
-                      className="mt-2 text-sm font-semibold text-ethio-green-dark"
-                      onClick={() => openReceipt(appt.id).catch((err) => setPaymentError(err.message))}
-                    >
-                      {t("pay.viewReceipt")}
-                    </button>
+                  {(appt.payment_reference || appt.payment_receipt_uploaded) && (
+                    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                      {appt.payment_reference && (
+                        <p className="min-w-0">
+                          {t("pay.reference")}:{" "}
+                          <span className="break-all font-mono font-bold tracking-wide">
+                            {appt.payment_reference}
+                          </span>
+                        </p>
+                      )}
+                      {appt.payment_receipt_uploaded && (
+                        <button
+                          type="button"
+                          className="min-w-0 break-all text-base font-semibold text-ethio-green-dark"
+                          onClick={() => openReceipt(appt.id).catch((err) => setPaymentError(err.message))}
+                        >
+                          {t("pay.viewReceipt")}
+                          {appt.payment_receipt_filename ? ` · ${appt.payment_receipt_filename}` : ""}
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
@@ -311,8 +336,12 @@ export default function CounselorDashboard({
           ))}
           {!loadingSessions && !error && providerAppointments.length === 0 && (
             <div className="card-vibrant p-5 text-center">
-              <p className="font-medium text-ethio-ink">No upcoming sessions</p>
-              <p className="mt-1 text-sm text-ethio-ink-muted">Your schedule is clear for now.</p>
+              <p className="font-medium text-ethio-ink">
+                {referenceNeedle ? "No sessions match that payment reference" : "No upcoming sessions"}
+              </p>
+              <p className="mt-1 text-base text-ethio-ink-muted">
+                {referenceNeedle ? "Try a different TESFA reference." : "Your schedule is clear for now."}
+              </p>
             </div>
           )}
         </div>

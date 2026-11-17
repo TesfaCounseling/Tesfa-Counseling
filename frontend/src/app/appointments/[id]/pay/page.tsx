@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useRef, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import AuthShell from "@/components/AuthShell";
@@ -40,7 +40,6 @@ export default function AppointmentPayPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const noteDirtyRef = useRef(false);
 
   useEffect(() => {
     if (!hasAuthSession()) {
@@ -53,12 +52,6 @@ export default function AppointmentPayPage() {
       .then((data) => {
         setAppointment(data.appointment);
         setInstructions(data.instructions);
-        setNote((current) => {
-          if (noteDirtyRef.current || current.trim() !== "") return current;
-          const saved = data.appointment.payment_client_note?.trim();
-          if (saved) return saved;
-          return data.appointment.payment_reference?.trim() || "";
-        });
       })
       .catch((err) => setError(err instanceof Error ? err.message : t("pay.loadError")))
       .finally(() => setLoading(false));
@@ -200,10 +193,7 @@ export default function AppointmentPayPage() {
                   {t("pay.notesOptional")}
                   <input
                     value={note}
-                    onChange={(e) => {
-                      noteDirtyRef.current = true;
-                      setNote(e.target.value);
-                    }}
+                    onChange={(e) => setNote(e.target.value)}
                     maxLength={500}
                     className="input-field text-base"
                     placeholder={t("pay.notesHint")}

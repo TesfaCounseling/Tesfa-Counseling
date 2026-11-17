@@ -2,7 +2,7 @@
 
 > Living handoff doc. Update this file as work progresses so the next agent can continue without re-discovering decisions.
 >
-> **Last updated:** 2026-11-17 — pay page notes field prefills TESFA payment reference
+> **Last updated:** 2026-11-17 — receipt uploads store TESFA-XXXXXX in filename; notes stay empty/optional
 
 ---
 
@@ -1027,12 +1027,13 @@ See **`DEPLOY.md`**. Summary:
 - User-facing network errors no longer mention `start-backend.ps1` or “Cannot reach the API”
 - CORS allows production Tesfa hosts + `https://deploy-preview-<number>--tesfa-counseling.netlify.app` (no `*` wildcard)
 
-### 2026-11-17 — Pay page notes prefill
+### 2026-11-17 — Receipt filename includes TESFA reference (notes not prefilled)
 
-- `/appointments/:id/pay` **Notes or reference (optional)** prefills with `payment_reference` (`TESFA-XXXX`) when empty
-- Field stays editable; typed input is not overwritten; a previously saved `payment_client_note` is restored if present
-- Backend already persists `payment_client_note` on receipt upload and keeps it after counselor approve
-- Test: `test_payment_note_saved_with_receipt_and_kept_after_approve`
+- Pay page **Notes or reference (optional)** stays empty optional free text (`payment_client_note`); do not prefill with TESFA-XXXXXX
+- Receipt upload always keeps/generates `payment_reference` and stores filename as `TESFA-XXXXXX_receipt.<ext>` (sanitize, original extension, `_2` on collision)
+- Counselor approve/payment record shows the reference next to **View receipt** (plus stored filename)
+- Existing counselor session list can filter by payment reference (`GET /appointments?q=`; dashboard search box). No separate admin payments search exists
+- Tests: filename contains reference, collision suffix, `q` filter, client note still saved separately
 
 ---
 

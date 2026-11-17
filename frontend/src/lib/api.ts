@@ -83,6 +83,7 @@ export interface Appointment {
   payment_reference?: string | null;
   payment_method?: string | null;
   payment_receipt_uploaded?: boolean;
+  payment_receipt_filename?: string | null;
   payment_submitted_at?: string | null;
   payment_verified_at?: string | null;
   payment_rejection_reason?: string | null;

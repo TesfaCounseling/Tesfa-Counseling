@@ -36,7 +36,8 @@ def _register(client, role, **overrides):
     return response.get_json()
 
 
-def _seed_paid_appointment(app, client_id, provider_id, reference="TESFA-AB12"):
+def _seed_paid_appointment(app, client_id, provider_id, reference=None):
+    reference = reference or f"TESFA-{uuid.uuid4().hex[:6].upper()}"
     starts = datetime.now(timezone.utc) + timedelta(days=3)
     with app.app_context():
         provider = db.session.get(User, uuid.UUID(provider_id))
@@ -64,10 +65,10 @@ def _seed_paid_appointment(app, client_id, provider_id, reference="TESFA-AB12"):
         return str(appt.id)
 
 
-def _upload(client, appointment_id, token, note=None):
+def _upload(client, appointment_id, token, note=None, filename="receipt.pdf"):
     data = {
         "payment_method": "wise",
-        "receipt": (BytesIO(b"%PDF-1.4 receipt"), "receipt.pdf", "application/pdf"),
+        "receipt": (BytesIO(b"%PDF-1.4 receipt"), filename, "application/pdf"),
     }
     if note is not None:
         data["payment_note"] = note
@@ -82,7 +83,8 @@ def _upload(client, appointment_id, token, note=None):
 def test_receipt_upload_emails_counselor_with_booking_details(client, app):
     therapist = _register(client, "therapist")
     client_user = _register(client, "client", first_name="Maya", last_name="Client")
-    appt_id = _seed_paid_appointment(app, client_user["user"]["id"], therapist["user"]["id"], "TESFA-ZZ99")
+    reference = f"TESFA-{uuid.uuid4().hex[:6].upper()}"
+    appt_id = _seed_paid_appointment(app, client_user["user"]["id"], therapist["user"]["id"], reference)
 
     with patch("app.services.notifications.send_email", return_value=True) as send_email:
         response = _upload(client, appt_id, client_user["access_token"])
@@ -92,12 +94,12 @@ def test_receipt_upload_emails_counselor_with_booking_details(client, app):
     send_email.assert_called_once()
     to_address, subject, body, html_body = send_email.call_args.args
     assert to_address == therapist["user"]["email"]
-    assert "TESFA-ZZ99" in subject
-    assert "TESFA-ZZ99" in body
+    assert reference in subject
+    assert reference in body
     assert "Maya Client" in body
     assert "Africa/Addis_Ababa" in body or "AM" in body or "PM" in body
     assert "/dashboard" in body
-    assert "TESFA-ZZ99" in html_body
+    assert reference in html_body
     assert "/dashboard" in html_body
 
 
@@ -117,11 +119,11 @@ def test_receipt_upload_succeeds_when_email_raises(client, app, caplog):
 def test_payment_note_saved_with_receipt_and_kept_after_approve(client, app):
     therapist = _register(client, "therapist")
     client_user = _register(client, "client")
-    reference = "TESFA-XY12"
+    reference = f"TESFA-{uuid.uuid4().hex[:6].upper()}"
     appt_id = _seed_paid_appointment(
         app, client_user["user"]["id"], therapist["user"]["id"], reference
     )
-    note = reference
+    note = "Sender Maya / Wise 9988"
 
     uploaded = _upload(client, appt_id, client_user["access_token"], note=note)
     assert uploaded.status_code == 200, uploaded.get_json()
@@ -162,3 +164,76 @@ def test_payment_note_saved_with_receipt_and_kept_after_approve(client, app):
     match = next(a for a in listed.get_json()["appointments"] if a["id"] == appt_id)
     assert match["payment_client_note"] == note
     assert match["payment_status"] == "verified"
+
+
+def test_receipt_upload_stores_reference_in_filename(client, app):
+    therapist = _register(client, "therapist")
+    client_user = _register(client, "client")
+    reference = f"TESFA-{uuid.uuid4().hex[:6].upper()}"
+    appt_id = _seed_paid_appointment(
+        app, client_user["user"]["id"], therapist["user"]["id"], reference
+    )
+
+    uploaded = _upload(
+        client, appt_id, client_user["access_token"], filename="My Receipt (1).PDF"
+    )
+    assert uploaded.status_code == 200, uploaded.get_json()
+    body = uploaded.get_json()["appointment"]
+    assert body["payment_reference"] == reference
+    assert body["payment_receipt_filename"] == f"{reference}_receipt.pdf"
+    assert body["payment_client_note"] is None
+
+    with app.app_context():
+        stored = db.session.get(Appointment, uuid.UUID(appt_id))
+        assert stored.payment_reference == reference
+        assert stored.payment_receipt_filename == f"{reference}_receipt.pdf"
+
+    receipt = client.get(
+        f"/api/v1/appointments/{appt_id}/payment/receipt",
+        headers={"Authorization": f"Bearer {client_user['access_token']}"},
+    )
+    assert receipt.status_code == 200
+    assert f"{reference}_receipt.pdf" in receipt.headers.get("Content-Disposition", "")
+
+
+def test_receipt_filename_avoids_collisions(client, app):
+    therapist = _register(client, "therapist")
+    client_user = _register(client, "client")
+    reference = f"TESFA-{uuid.uuid4().hex[:6].upper()}"
+    appt_id = _seed_paid_appointment(
+        app, client_user["user"]["id"], therapist["user"]["id"], reference
+    )
+    other_id = _seed_paid_appointment(
+        app, client_user["user"]["id"], therapist["user"]["id"], f"TESFA-{uuid.uuid4().hex[:6].upper()}"
+    )
+    with app.app_context():
+        other = db.session.get(Appointment, uuid.UUID(other_id))
+        other.payment_receipt_filename = f"{reference}_receipt.pdf"
+        db.session.commit()
+
+    uploaded = _upload(client, appt_id, client_user["access_token"], filename="receipt.pdf")
+    assert uploaded.status_code == 200, uploaded.get_json()
+    assert uploaded.get_json()["appointment"]["payment_receipt_filename"] == f"{reference}_receipt_2.pdf"
+
+
+def test_list_appointments_filter_by_payment_reference(client, app):
+    therapist = _register(client, "therapist")
+    client_user = _register(client, "client")
+    match_ref = f"TESFA-S{uuid.uuid4().hex[:5].upper()}"
+    other_ref = f"TESFA-O{uuid.uuid4().hex[:5].upper()}"
+    match_id = _seed_paid_appointment(
+        app, client_user["user"]["id"], therapist["user"]["id"], match_ref
+    )
+    _seed_paid_appointment(app, client_user["user"]["id"], therapist["user"]["id"], other_ref)
+
+    headers = {"Authorization": f"Bearer {therapist['access_token']}"}
+    listed = client.get(f"/api/v1/appointments?q={match_ref.split('-', 1)[1]}", headers=headers)
+    assert listed.status_code == 200
+    ids = [a["id"] for a in listed.get_json()["appointments"]]
+    assert ids == [match_id]
+
+    exact = client.get(f"/api/v1/appointments?q={match_ref}", headers=headers)
+    assert [a["id"] for a in exact.get_json()["appointments"]] == [match_id]
+
+    miss = client.get("/api/v1/appointments?q=TESFA-NOPE", headers=headers)
+    assert miss.get_json()["appointments"] == []
