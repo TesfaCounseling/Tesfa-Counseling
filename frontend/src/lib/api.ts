@@ -33,6 +33,7 @@ export interface Provider {
   practice_location?: string | null;
   program_name?: string | null;
   photo_url?: string | null;
+  approval_status?: string | null;
 }
 
 export interface Slot {

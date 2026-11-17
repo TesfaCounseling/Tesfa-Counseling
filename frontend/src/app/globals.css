@@ -415,7 +415,7 @@
   }
 
   .duration-pill {
-    @apply min-w-[120px] rounded-xl border-2 px-4 py-3 text-left text-sm transition;
+    @apply min-w-[120px] rounded-xl border-2 px-4 py-3 text-left text-base transition;
     border-color: rgba(4, 107, 210, 0.2);
     background: var(--ethio-surface-input);
     color: var(--ethio-ink-muted);
@@ -427,10 +427,10 @@
   }
 
   .duration-pill-active {
-    border-color: var(--ethio-green);
-    background: rgba(219, 234, 254, 0.85);
-    color: var(--ethio-green-dark);
-    box-shadow: 0 4px 14px -4px rgba(4, 107, 210, 0.25);
+    border-color: #013b1a;
+    background: #013b1a;
+    color: #ffffff;
+    box-shadow: var(--shadow-ethio);
   }
 
   .day-group-header {
@@ -456,7 +456,7 @@
     min-height: 3.5rem;
   }
 
-  .slot-pill:hover:not(:disabled) {
+  .slot-pill:hover:not(:disabled):not(.slot-pill-selected) {
     border-color: var(--ethio-green);
     background: rgba(219, 234, 254, 0.65);
     transform: translateY(-1px);
@@ -464,16 +464,18 @@
   }
 
   .slot-pill-time {
-    @apply text-sm font-bold text-ethio-ink;
+    @apply text-base font-bold text-ethio-ink;
   }
 
   .slot-pill-meta {
-    @apply mt-0.5 text-[10px] font-medium uppercase tracking-wide text-ethio-ink-muted;
+    @apply mt-0.5 text-base font-medium uppercase tracking-wide text-ethio-ink-muted;
   }
 
-  .slot-pill.slot-pill-selected {
-    border-color: var(--ethio-green-dark);
-    background: var(--ethio-green-dark);
+  /* Hover must not wash out the selected state (white-on-pale-blue fails WCAG). */
+  .slot-pill.slot-pill-selected,
+  .slot-pill.slot-pill-selected:hover:not(:disabled) {
+    border-color: #013b1a;
+    background: #013b1a;
     color: #ffffff;
     box-shadow: var(--shadow-ethio);
   }
@@ -481,6 +483,10 @@
   .slot-pill.slot-pill-selected .slot-pill-time,
   .slot-pill.slot-pill-selected .slot-pill-meta {
     color: #ffffff;
+  }
+
+  .btn-spinner {
+    @apply mr-2 inline-block h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-white border-t-transparent;
   }
 
   .empty-state {

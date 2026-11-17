@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import ProviderCard from "@/components/ProviderCard";
 import { useLanguage } from "@/components/LanguageProvider";
 import type { Provider } from "@/lib/api";
-import { collectLanguages, providerMatchesLanguage } from "@/lib/providerUtils";
+import { collectLanguages, providerMatchesLanguage, publicApprovedProviders } from "@/lib/providerUtils";
 
 type CounselorListProps = {
   providers: Provider[];
@@ -18,12 +18,13 @@ function displayLanguageName(lang: string, uiLang: "en" | "am") {
 
 export default function CounselorList({ providers }: CounselorListProps) {
   const { t, language } = useLanguage();
-  const languages = useMemo(() => collectLanguages(providers), [providers]);
+  const visibleProviders = useMemo(() => publicApprovedProviders(providers), [providers]);
+  const languages = useMemo(() => collectLanguages(visibleProviders), [visibleProviders]);
   const [languageFilter, setLanguageFilter] = useState("all");
 
   const filtered = useMemo(
-    () => providers.filter((p) => providerMatchesLanguage(p, languageFilter)),
-    [providers, languageFilter]
+    () => visibleProviders.filter((p) => providerMatchesLanguage(p, languageFilter)),
+    [visibleProviders, languageFilter]
   );
 
   return (
@@ -65,7 +66,7 @@ export default function CounselorList({ providers }: CounselorListProps) {
         ))}
       </div>
 
-      {providers.length > 0 && filtered.length === 0 && (
+      {visibleProviders.length > 0 && filtered.length === 0 && (
         <div className="empty-state mt-6">
           <p className="font-semibold text-ethio-ink">{t("counselors.noMatch")}</p>
           <button type="button" onClick={() => setLanguageFilter("all")} className="btn-primary mt-4 text-sm">

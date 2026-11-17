@@ -31,6 +31,7 @@ def _provider_dict(user: User, profile_type: str) -> dict:
             "practice_location": getattr(profile, "practice_location", None) if profile else None,
             "program_name": None,
             "photo_url": photo_url,
+            "approval_status": "approved",
         }
     return {
         "id": str(user.id),

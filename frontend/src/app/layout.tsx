@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { APP_NAME } from "@/lib/brand";
+import { SITE_URL } from "@/lib/seo";
 import { AppProviders } from "./providers";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.tesfacounseling.com"),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: APP_NAME,
     template: `%s · ${APP_NAME}`,

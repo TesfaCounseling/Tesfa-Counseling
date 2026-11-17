@@ -77,3 +77,66 @@ def test_register_therapist_stays_off_public_list(client, app):
 
     detail = client.get(f"/api/v1/therapists/{user_id}")
     assert detail.status_code == 404
+
+
+def test_pending_and_approved_counselors_listing_only_returns_approved(client, app):
+    pending_email = f"bio-test-{uuid.uuid4().hex[:8]}@example.com"
+    approved_email = f"ok-{uuid.uuid4().hex[:8]}@example.com"
+    pending = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": pending_email,
+            "password": "password123",
+            "first_name": "Bio",
+            "last_name": "Test",
+            "role": "therapist",
+            "languages": "English",
+            "specializations": "Anxiety",
+            "timezone": "Africa/Addis_Ababa",
+        },
+    )
+    approved = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": approved_email,
+            "password": "password123",
+            "first_name": "Ready",
+            "last_name": "Counselor",
+            "role": "therapist",
+            "languages": "English",
+            "specializations": "Anxiety",
+            "timezone": "Africa/Addis_Ababa",
+        },
+    )
+    assert pending.status_code == 201, pending.get_json()
+    assert approved.status_code == 201, approved.get_json()
+    pending_id = pending.get_json()["user"]["id"]
+    approved_id = approved.get_json()["user"]["id"]
+
+    client.patch(
+        "/api/v1/providers/me",
+        json={"bio": "I am a pending counselor who should NOT be public yet.", "languages": "English"},
+        headers={"Authorization": f"Bearer {pending.get_json()['access_token']}"},
+    )
+    client.patch(
+        "/api/v1/providers/me",
+        json={"bio": "Approved and ready.", "languages": "English"},
+        headers={"Authorization": f"Bearer {approved.get_json()['access_token']}"},
+    )
+
+    with app.app_context():
+        user = db.session.get(User, uuid.UUID(approved_id))
+        user.therapist_profile.approval_status = ApprovalStatus.APPROVED
+        db.session.commit()
+
+    listing = client.get("/api/v1/therapists")
+    assert listing.status_code == 200
+    ids = {p["id"] for p in listing.get_json()["providers"]}
+    assert pending_id not in ids
+    assert approved_id in ids
+    for provider in listing.get_json()["providers"]:
+        assert provider.get("approval_status") == "approved"
+
+    assert client.get(f"/api/v1/therapists/{pending_id}").status_code == 404
+    assert client.get(f"/api/v1/therapists/{approved_id}").status_code == 200
+    assert client.get(f"/api/v1/therapists/{pending_id}/pricing").status_code == 404

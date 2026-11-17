@@ -69,6 +69,11 @@ export default function BookCounselorPage() {
       .catch(() => setClientTz(getBrowserTimezone()));
   }, []);
 
+  const offeredDurations = useMemo(() => {
+    const priced = new Set(pricingList.map((p) => p.duration_minutes));
+    return DURATIONS.filter((opt) => priced.has(opt.minutes));
+  }, [pricingList]);
+
   const currentPricing = useMemo(
     () => pricingList.find((p) => p.duration_minutes === duration),
     [pricingList, duration]
@@ -100,16 +105,28 @@ export default function BookCounselorPage() {
     Promise.all([
       getProvider(providerId),
       getProviderPricing(providerId),
-      getProviderSlots(providerId, duration, clientTz),
       isReschedule && rescheduleId ? getAppointment(rescheduleId) : Promise.resolve(null),
     ])
-      .then(async ([providerData, pricingData, slotsData, apptData]) => {
+      .then(async ([providerData, pricingData, apptData]) => {
         setProvider(providerData.provider);
         setPricingList(pricingData.pricing);
-        setSlots(slotsData.slots);
-        if (apptData?.appointment.duration_minutes) {
-          setDuration(apptData.appointment.duration_minutes);
+        const pricedMinutes = pricingData.pricing.map((p) => p.duration_minutes);
+        const preferred =
+          apptData?.appointment.duration_minutes && pricedMinutes.includes(apptData.appointment.duration_minutes)
+            ? apptData.appointment.duration_minutes
+            : duration;
+        const nextDuration = pricedMinutes.includes(preferred) ? preferred : pricedMinutes[0];
+        if (!pricedMinutes.length) {
+          setSlots([]);
+          setError("This counselor has not set a price for any session length.");
+          return;
         }
+        if (nextDuration !== duration) {
+          setDuration(nextDuration);
+          return;
+        }
+        const slotsData = await getProviderSlots(providerId, duration, clientTz);
+        setSlots(slotsData.slots);
         if (!isReschedule && providerData.provider.type === "trainee") {
           const status = await getTraineeIntakeStatus(providerId);
           if (!status.completed) {
@@ -127,6 +144,10 @@ export default function BookCounselorPage() {
 
   async function handleConfirm() {
     if (!selected) return;
+    if (!isReschedule && !currentPricing) {
+      setError("This counselor has not set a price for that session length.");
+      return;
+    }
     setBooking(selected.starts_at);
     setError("");
     try {
@@ -246,9 +267,9 @@ export default function BookCounselorPage() {
             </div>
 
             <div className="mt-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-ethio-ink-muted">Session length</p>
+              <p className="text-base font-semibold uppercase tracking-wide text-ethio-ink-muted">Session length</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                {DURATIONS.map((opt) => (
+                {offeredDurations.map((opt) => (
                   <button
                     key={opt.minutes}
                     type="button"
@@ -256,10 +277,13 @@ export default function BookCounselorPage() {
                     className={`duration-pill ${duration === opt.minutes ? "duration-pill-active" : ""}`}
                   >
                     <span className="block font-bold">{opt.label}</span>
-                    <span className="block text-xs opacity-80">{opt.desc}</span>
+                    <span className="block text-base opacity-80">{opt.desc}</span>
                   </button>
                 ))}
               </div>
+              {pricingList.length > 0 && offeredDurations.length === 0 && (
+                <p className="mt-2 text-base text-ethio-ink-muted">No priced session lengths are available.</p>
+              )}
             </div>
 
             {!isReschedule && tiers.length > 1 && (

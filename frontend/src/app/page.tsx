@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { Provider } from "@/lib/api";
 import HomePageShell from "@/components/HomePageShell";
 import { configuredApiUrl } from "@/lib/apiBase";
+import { publicApprovedProviders } from "@/lib/providerUtils";
 import { PAGE_SEO } from "@/lib/seo";
 
 export const metadata: Metadata = PAGE_SEO.home;
@@ -16,7 +17,7 @@ async function getProviders(): Promise<Provider[]> {
     });
     if (!res.ok) return [];
     const data = (await res.json()) as { providers?: Provider[] };
-    return data.providers ?? [];
+    return publicApprovedProviders(data.providers ?? []);
   } catch {
     return [];
   }

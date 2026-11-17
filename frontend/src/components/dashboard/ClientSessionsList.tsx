@@ -67,12 +67,17 @@ export default function ClientSessionsList({
               ? t("pay.awaitingVerification")
               : appt.payment_status === "rejected"
                 ? t("pay.status.rejected")
-                : appt.status}
+                : appt.payment_status === "verified"
+                  ? t("pay.paidConfirmed")
+                  : appt.status}
             {appt.session_mode === "audio_only" && ` · ${t("dashboard.audio")}`}
           </p>
           <p className="text-xs text-ethio-ink-muted">{formatMoney(appt.amount_cents, appt.currency)}</p>
           {appt.payment_status === "submitted" && (
-            <p className="mt-1 text-xs font-semibold text-ethio-green-dark">{t("pay.waitingReview")}</p>
+            <p className="mt-1 text-base font-semibold text-ethio-green-dark">{t("pay.waitingReview")}</p>
+          )}
+          {appt.payment_status === "verified" && (
+            <p className="mt-1 text-base font-semibold text-ethio-green-dark">{t("pay.status.verified")}</p>
           )}
           {showActions && (
             <div className="mt-3 flex flex-wrap gap-3">

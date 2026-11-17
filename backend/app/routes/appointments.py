@@ -39,6 +39,8 @@ from app.utils import ensure_client_org_membership, get_provider_organization_id
 
 appointments_bp = Blueprint("appointments", __name__)
 
+UNPRICED_DURATION_MESSAGE = "This counselor has not set a price for that session length."
+
 MAX_RECEIPT_BYTES = 5 * 1024 * 1024
 ALLOWED_RECEIPT_MIME = {
     "image/jpeg",
@@ -308,6 +310,12 @@ def book_appointment():
     if not provider or not _provider_is_bookable(provider):
         return jsonify({"error": "Not Found", "message": "Provider not available"}), 404
 
+    pricing = SessionPricing.query.filter_by(
+        provider_id=provider_id, duration_minutes=duration_minutes, is_active=True
+    ).first()
+    if not pricing:
+        return jsonify({"error": "ValidationError", "message": UNPRICED_DURATION_MESSAGE}), 400
+
     ends_at = starts_at + timedelta(minutes=duration_minutes)
 
     try:
@@ -315,18 +323,14 @@ def book_appointment():
     except ValueError as exc:
         return jsonify({"error": "Conflict", "message": str(exc)}), 409
 
-    pricing = SessionPricing.query.filter_by(
-        provider_id=provider_id, duration_minutes=duration_minutes, is_active=True
-    ).first()
-
     from app.models import PricingType
 
-    pricing_type_str = data.get("pricing_type", pricing.pricing_type.value if pricing else "standard")
+    pricing_type_str = data.get("pricing_type", pricing.pricing_type.value)
     if pricing_type_str == PricingType.PRO_BONO.value:
         return jsonify({"error": "ValidationError", "message": "Pro bono pricing is not available"}), 400
 
     pricing_type = PricingType(pricing_type_str)
-    amount_cents = pricing.amount_cents if pricing else 0
+    amount_cents = pricing.amount_cents
     currency = pricing.currency if pricing else "USD"
 
     if pricing and pricing.pricing_type == PricingType.PRO_BONO:
@@ -611,6 +615,12 @@ def reschedule_appointment(appointment_id):
     except (KeyError, ValueError, TypeError):
         return jsonify({"error": "ValidationError", "message": "Invalid reschedule data"}), 400
 
+    priced = SessionPricing.query.filter_by(
+        provider_id=appt.provider_id, duration_minutes=duration_minutes, is_active=True
+    ).first()
+    if not priced:
+        return jsonify({"error": "ValidationError", "message": UNPRICED_DURATION_MESSAGE}), 400
+
     ends_at = starts_at + timedelta(minutes=duration_minutes)
 
     try:
@@ -689,6 +699,12 @@ def provider_slots(provider_id):
     provider = db.session.get(User, provider_id)
     if not provider or not _provider_is_bookable(provider):
         return jsonify({"error": "Not Found"}), 404
+
+    priced = SessionPricing.query.filter_by(
+        provider_id=provider_id, duration_minutes=duration, is_active=True
+    ).first()
+    if not priced:
+        return jsonify({"error": "ValidationError", "message": UNPRICED_DURATION_MESSAGE}), 400
 
     slots = generate_available_slots(provider_id, duration, client_tz)
     return jsonify({"slots": slots, "duration_minutes": duration, "client_timezone": client_tz})

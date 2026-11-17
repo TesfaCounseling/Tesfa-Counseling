@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import CounselorsPageShell from "@/components/CounselorsPageShell";
 import type { Provider } from "@/lib/api";
 import { configuredApiUrl } from "@/lib/apiBase";
+import { publicApprovedProviders } from "@/lib/providerUtils";
 import { PAGE_SEO } from "@/lib/seo";
 
 export const metadata: Metadata = PAGE_SEO.counselors;
@@ -22,7 +23,7 @@ async function getProviders(): Promise<{ providers: Provider[]; error: string | 
       };
     }
     const data = (await res.json()) as { providers?: Provider[] };
-    return { providers: data.providers ?? [], error: null };
+    return { providers: publicApprovedProviders(data.providers ?? []), error: null };
   } catch (err) {
     const message =
       err instanceof Error && err.name === "TimeoutError"

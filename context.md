@@ -18,7 +18,7 @@
 
 | Layer | Tech | Deploy target |
 |-------|------|---------------|
-| Frontend | Next.js 15, TypeScript, Tailwind | Netlify — **`https://www.tesfacounseling.com`** (primary) + `https://tesfa-counseling.netlify.app` |
+| Frontend | Next.js 15, TypeScript, Tailwind | Netlify — **`https://tesfacounseling.com`** (canonical) + `https://www.tesfacounseling.com` (301) + `https://tesfa-counseling.netlify.app` |
 | API | Flask, JWT, SQLAlchemy, Alembic | Render — `https://tesfa-counseling.onrender.com` |
 | DB | SQLite (dev) / Postgres (prod) | Netlify Database → `DATABASE_URL` on Render |
 | Video | Daily.co | `DAILY_API_KEY` on Render (required for join URLs) |
@@ -389,10 +389,11 @@ Note: Tailwind classes use prefix `ethio-*` (legacy) — maps to **blue** brand,
 | `/admin` | Client | Redirects to `/dashboard` if admin access |
 | `/supervision` | Client | Cosign queue — trainee **session notes** only |
 | `/supervision/intakes` | Client | Supervisor view of client intake forms for assigned trainees |
-| `/provider/schedule` | Client | Weekly hours + pricing (USD) |
-| `/provider/profile` | Client | Edit bio, title, location, languages, specialties |
+| `/provider/schedule` | Client | Weekly hours + pricing (USD); logged-out → `/login?next=/provider/schedule` |
+| `/provider/profile` | Client | Edit bio, title, location, languages, specialties; logged-out → `/login?next=/provider/profile` |
+| `/provider/payout` | Client | Counselor bank/payout details; logged-out → `/login?next=/provider/payout` |
 | `/provider/notes` | Client | Clinical notes list |
-| `/provider/notes/[appointmentId]` | Client | SOAP note editor |
+| `/provider/notes/[appointmentId]` | Client | SOAP note editor; logged-out → `/login?next=…` |
 | `/provider/intakes` | Client | View trainee intakes |
 
 **API client:** `frontend/src/lib/api.ts` · **Roles:** `frontend/src/lib/roles.ts` · **Filters:** `frontend/src/lib/providerUtils.ts`
@@ -576,7 +577,7 @@ NEXT_PUBLIC_BETA_FEEDBACK=true       # show Give Us Your Feedback widget
 **Live URLs:**
 | Service | URL |
 |---------|-----|
-| **Primary site** | `https://www.tesfacounseling.com` |
+| **Primary / canonical site** | `https://tesfacounseling.com` (`www` 301s here; use this in SEO) |
 | Frontend (Netlify) | `https://tesfa-counseling.netlify.app` |
 | API (Render) | `https://tesfa-counseling.onrender.com` |
 
@@ -623,6 +624,7 @@ See **`DEPLOY.md`**. Summary:
 25. **Remittance env** — without `PAYMENT_ACCOUNT_DETAILS` on Render, pay page shows a **client-facing** placeholder (never the developer “set this in Render” note)
 27. **Booking slot grid** — must format times with the saved `client_timezone` (`timeZone` option). Browser-local `toLocaleTimeString()` will show LA times for a Toronto client.
 26. **Netlify build** — duplicate exports / bad TranslationKey types fail deploy; fix and push; retry failed deploy on latest commit
+27. **SEO canonical** — always apex `https://tesfacounseling.com` plus the page path (`SITE_URL` in `frontend/src/lib/seo.ts`). Never set `alternates.canonical` or `og:url` to the homepage on a non-home page. Omit canonical on dynamic routes (`/counselors/[id]/book`, pay, note editor) rather than pointing them at `/`. `www` 301s to the bare domain, so do not use `www` in metadataBase, robots Host, or sitemap URLs.
 
 ---
 
@@ -994,6 +996,21 @@ See **`DEPLOY.md`**. Summary:
 - Unique title + meta description per page; `robots.ts` + `sitemap.xml`
 
 **Jay still needed:** set production `PAYMENT_ACCOUNT_DETAILS` (real CBE/remittance receive details). Do not invent numbers.
+
+### 2026-11-17 — SEO canonical + payout login redirect
+
+- Canonical origin is **`https://tesfacounseling.com`** (not `www`) in `SITE_URL`, `metadataBase`, robots Host, sitemap, and `og:url`
+- Each static page sets its own canonical path; dynamic book/pay/note-editor pages omit canonical so they never claim to be the homepage
+- Logged-out visits to `/provider/payout` (and profile/schedule/note editor) redirect to `/login?next=…` instead of the “Cannot reach the API / start-backend.ps1” message
+
+### 2026-11-17 — Booking, listing, payment UX follow-ups (same PR)
+
+- Selected slot stays **dark green + white** on hover (WCAG AA); hover no longer paints a pale fill over selected
+- Public `/therapists` list/detail/photo/pricing and frontend homepage/counselors list **only approved** counselors
+- Client schedule banner uses payment status (awaiting verification vs confirmed) instead of always saying “confirmed”
+- Book UI and API only offer/accept session lengths with an **active price** (no free 90-min fallback)
+- Counselor **Approve payment** shows spinner, disables both actions, blocks double submit
+- Client (and counselor) cards show **Paid · confirmed** after verification
 
 ---
 

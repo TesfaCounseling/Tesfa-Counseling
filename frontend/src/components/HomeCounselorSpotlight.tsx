@@ -5,7 +5,7 @@ import { ProviderAvatar } from "@/components/ProviderCard";
 import { useLanguage } from "@/components/LanguageProvider";
 import { formatTranslation } from "@/lib/i18n";
 import type { Provider } from "@/lib/api";
-import { counselorBriefIntro, parseProviderTags } from "@/lib/providerUtils";
+import { counselorBriefIntro, parseProviderTags, publicApprovedProviders } from "@/lib/providerUtils";
 
 const HOMEPAGE_LIMIT = 6;
 
@@ -17,7 +17,7 @@ type HomeCounselorSpotlightProps = {
 
 export default function HomeCounselorSpotlight({ providers }: HomeCounselorSpotlightProps) {
   const { t, language } = useLanguage();
-  const featured = providers.slice(0, HOMEPAGE_LIMIT);
+  const featured = publicApprovedProviders(providers).slice(0, HOMEPAGE_LIMIT);
 
   return (
     <section className="mx-auto max-w-5xl page-pad py-8 sm:py-12">

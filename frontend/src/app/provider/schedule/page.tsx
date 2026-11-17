@@ -11,6 +11,7 @@ import {
   createAvailabilityRule,
   deleteAvailabilityRule,
   getMyProviderProfile,
+  hasAuthSession,
   listAvailabilityRules,
   listSessionPricing,
   updateMyProviderProfile,
@@ -64,8 +65,8 @@ export default function ProviderSchedulePage() {
   }
 
   useEffect(() => {
-    if (!localStorage.getItem("access_token")) {
-      router.push("/login");
+    if (!hasAuthSession()) {
+      router.replace("/login?next=/provider/schedule");
       return;
     }
     loadAll().catch((err) => setError(err instanceof Error ? err.message : "Failed to load schedule"));
@@ -255,7 +256,7 @@ export default function ProviderSchedulePage() {
                 className="input-field"
               />
             </div>
-            <span className="mt-1 block text-xs font-normal text-ethio-ink-muted">
+            <span className="mt-1 block text-base font-normal text-ethio-ink-muted">
               For sliding scale, enter your full standard rate — clients can choose full or reduced at booking.
             </span>
           </label>
