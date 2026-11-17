@@ -142,6 +142,7 @@ def register():
                 languages=languages,
                 specializations=specializations,
                 timezone=timezone_name,
+                approval_status=ApprovalStatus.PENDING,
             )
         )
     elif role == UserRole.TRAINEE:
@@ -155,6 +156,7 @@ def register():
                 languages=languages,
                 program_name=program_name,
                 timezone=timezone_name,
+                approval_status=ApprovalStatus.PENDING,
             )
         )
     elif role == UserRole.CLIENT:

@@ -3,8 +3,9 @@ import uuid
 from flask import Blueprint, jsonify, make_response
 
 from app.extensions import db
-from app.models import ApprovalStatus, SessionPricing, TherapistProfile, User
+from app.models import SessionPricing, TherapistProfile, User
 from app.provider_profile_utils import (
+    approved_therapist_status_filter,
     therapist_has_photo,
     therapist_photo_path,
     therapist_public_profile_complete,
@@ -62,11 +63,11 @@ def _get_public_provider(user_id) -> tuple[User, str] | None:
 
 @therapists_bp.route("", methods=["GET"])
 def list_therapists():
-    """Public list of approved counselors with completed profiles."""
+    """Public list of admin-approved counselors with an introduction. Pending never appear."""
     rows = (
         db.session.query(User)
         .join(TherapistProfile, TherapistProfile.user_id == User.id)
-        .filter(TherapistProfile.approval_status == ApprovalStatus.APPROVED, User.is_active.is_(True))
+        .filter(approved_therapist_status_filter(), User.is_active.is_(True))
         .order_by(TherapistProfile.updated_at.desc())
         .all()
     )
@@ -74,7 +75,7 @@ def list_therapists():
     listable = [
         (user, _provider_dict(user, "therapist"))
         for user in rows
-        if therapist_publicly_listable(user.therapist_profile)
+        if user.therapist_profile and therapist_publicly_listable(user.therapist_profile)
     ]
     listable.sort(
         key=lambda pair: (

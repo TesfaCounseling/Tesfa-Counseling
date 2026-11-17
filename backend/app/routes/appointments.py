@@ -160,9 +160,12 @@ def _appointment_to_dict(appt: Appointment, user: User | None = None) -> dict:
 
 
 def _provider_is_bookable(user: User) -> bool:
-    if user.therapist_profile and user.therapist_profile.approval_status == ApprovalStatus.APPROVED:
+    from app.provider_profile_utils import therapist_is_approved, therapist_publicly_listable
+
+    # Public booking requires an admin-approved counselor who is listable (has intro).
+    if user.therapist_profile and therapist_publicly_listable(user.therapist_profile):
         return True
-    if user.trainee_profile and user.trainee_profile.approval_status == ApprovalStatus.APPROVED:
+    if user.trainee_profile and therapist_is_approved(user.trainee_profile):
         return True
     return False
 

@@ -186,7 +186,7 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
                 className="input-field"
               />
               <span className="mt-1 block text-xs font-normal text-ethio-ink-muted">
-                Separate multiple specialties with commas. These appear on your public counselor profile.
+                Separate multiple specialties with commas. After admin approval, these appear on your public profile.
               </span>
             </label>
             <label className="block text-sm font-medium text-ethio-ink">

@@ -26,7 +26,7 @@ function ProfileChecklist({ profile }: { profile: ProviderProfile }) {
     <div className="rounded-xl bg-ethio-surface p-4 text-sm">
       <p className="font-semibold text-ethio-ink">Public listing checklist</p>
       <p className="mt-1 text-ethio-ink-muted">
-        You appear on the homepage and Find a counselor once all items are complete.
+        You stay hidden from the public site until an admin approves you and your introduction is complete.
       </p>
       <ul className="mt-3 space-y-2 text-ethio-ink-muted">
         <li>{approved ? "✓" : "○"} Admin approval</li>
