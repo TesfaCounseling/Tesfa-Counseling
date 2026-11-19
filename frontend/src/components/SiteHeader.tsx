@@ -72,6 +72,25 @@ export default function SiteHeader({ showAuth = true, user: userProp = null }: S
     };
   }, [loggedIn, userProp, pathname]);
 
+  useEffect(() => {
+    const header = document.querySelector<HTMLElement>(".site-header");
+    if (!header) return;
+
+    const syncHeaderHeight = () => {
+      const height = Math.ceil(header.getBoundingClientRect().height);
+      document.documentElement.style.setProperty("--site-header-height", `${height}px`);
+    };
+
+    syncHeaderHeight();
+    const observer = new ResizeObserver(syncHeaderHeight);
+    observer.observe(header);
+    window.addEventListener("resize", syncHeaderHeight);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", syncHeaderHeight);
+    };
+  }, [loggedIn, user, pathname]);
+
   function handleLogout() {
     clearAuthSession();
     setLoggedIn(false);
@@ -82,15 +101,15 @@ export default function SiteHeader({ showAuth = true, user: userProp = null }: S
   const displayName = user?.first_name?.trim() || user?.full_name?.trim() || "";
 
   return (
-    <header className="site-header sticky top-0 z-50 pt-[var(--safe-top)]">
+    <header className="site-header sticky top-0 z-50 max-w-full min-w-0 pt-[var(--safe-top)]">
       <div className="ethio-stripe-bar" />
-      <div className="mx-auto max-w-5xl page-pad py-3 sm:py-4">
-        <div className="flex flex-col gap-2 sm:gap-0">
-          <div className="flex items-center justify-between gap-2 sm:gap-3">
+      <div className="mx-auto max-w-5xl min-w-0 page-pad py-3 sm:py-4">
+        <div className="flex min-w-0 flex-col gap-2 sm:gap-0">
+          <div className="flex min-w-0 max-w-full items-center justify-between gap-2 sm:gap-3">
             <BrandLogoLink />
 
             <nav
-              className="flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2"
+              className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-1.5 sm:gap-2"
               aria-label={t("nav.main")}
             >
               {AMHARIC_UI_ENABLED && (

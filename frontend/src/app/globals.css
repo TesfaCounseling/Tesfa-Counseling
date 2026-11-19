@@ -31,6 +31,14 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+  /* Fallback until SiteHeader measures real height (incl. mobile wrap). */
+  --site-header-height: calc(4.5rem + var(--safe-top));
+}
+
+@media (min-width: 640px) {
+  :root {
+    --site-header-height: calc(4.75rem + var(--safe-top));
+  }
 }
 
 @layer utilities {
@@ -89,18 +97,30 @@
 @layer components {
   .page-shell {
     min-height: 100dvh;
+    max-width: 100%;
+    min-width: 0;
     background-color: var(--ethio-bg-page);
     padding-bottom: calc(1.5rem + var(--safe-bottom));
   }
 
   .page-pad {
-    @apply px-4 sm:px-6;
+    @apply box-border px-4 sm:px-6;
   }
 
   .site-header {
     background: var(--ethio-surface-header);
     border-bottom: 1px solid rgba(7, 137, 48, 0.12);
     box-shadow: 0 4px 20px -4px rgba(7, 137, 48, 0.08);
+  }
+
+  /* Sticky payment banners: under header (z-50), above page content. */
+  .payment-action-banner {
+    position: sticky;
+    top: var(--site-header-height);
+    z-index: 40;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
   }
 
   .surface-badge {
@@ -175,7 +195,7 @@
   }
 
   .btn-cta {
-    @apply inline-flex min-h-[56px] w-full items-center justify-center rounded-2xl px-8 py-4 text-lg font-bold text-white transition active:scale-[0.98] hover:brightness-105 sm:min-w-[280px] sm:w-auto;
+    @apply inline-flex min-h-[56px] w-full max-w-full items-center justify-center rounded-2xl px-6 py-4 text-lg font-bold text-white transition active:scale-[0.98] hover:brightness-105 sm:px-8 sm:w-auto;
     background-image: var(--ethio-gradient);
     box-shadow: 0 14px 48px -12px rgba(7, 137, 48, 0.38);
   }

@@ -199,7 +199,7 @@ export default function CounselorDashboard({
                 appt.payment_status !== "not_required" &&
                 (appt.payment_status !== "verified" ||
                   Boolean(appt.payment_method || appt.payment_reference || appt.payment_receipt_uploaded)) && (
-                <div className="mt-3 min-w-0 overflow-x-hidden rounded-xl bg-ethio-surface p-3 text-base text-ethio-ink">
+                <div className="mt-3 min-w-0 max-w-full rounded-xl bg-ethio-surface p-3 text-base text-ethio-ink">
                   <p className="text-base font-bold uppercase tracking-wide text-ethio-ink-muted">
                     {t("pay.paymentRecord")}
                   </p>
@@ -219,19 +219,21 @@ export default function CounselorDashboard({
                     <p className="mt-1 break-words text-ethio-ink-muted">{appt.payment_client_note}</p>
                   )}
                   {appt.payment_reference && (
-                    <p className="mt-2 min-w-0">
+                    <p className="mt-2 min-w-0 max-w-full [overflow-wrap:anywhere]">
                       {t("pay.reference")}:{" "}
-                      <span className="break-all font-mono font-bold tracking-wide">
+                      <span className="font-mono font-bold tracking-wide">
                         {appt.payment_reference}
                       </span>
                     </p>
                   )}
                   {appt.payment_receipt_filename && (
-                    <p className="mt-1 break-all text-base text-ethio-ink-muted">{appt.payment_receipt_filename}</p>
+                    <p className="mt-1 max-w-full text-base text-ethio-ink-muted [overflow-wrap:anywhere]">
+                      {appt.payment_receipt_filename}
+                    </p>
                   )}
                 </div>
               )}
-              <div className="mt-3 flex min-w-0 flex-col gap-3">
+              <div className="mt-3 flex min-w-0 max-w-full flex-col gap-3">
                 {(appt.payment_status === "submitted" || appt.payment_receipt_uploaded) && (
                   <PaymentVerifyButtons
                     appointmentId={appt.id}

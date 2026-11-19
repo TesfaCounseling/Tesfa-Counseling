@@ -10,14 +10,14 @@ export default function BrandLogo({ className = "", showSubtitle = false }: Bran
   const { first, rest } = appNameParts();
 
   return (
-    <div className={`flex items-center gap-2.5 ${className}`}>
-      <div className="relative flex h-10 w-11 shrink-0 items-center justify-center rounded-xl bg-ethio-gradient px-0.5 shadow-ethio sm:h-10 sm:w-11">
+    <div className={`flex min-w-0 max-w-full items-center gap-2.5 ${className}`}>
+      <div className="relative flex h-10 w-11 shrink-0 items-center justify-center overflow-visible rounded-xl bg-ethio-gradient px-0.5 shadow-ethio sm:h-10 sm:w-11">
         <span className="text-[10px] font-bold leading-none text-white sm:text-[11px]" lang="am" aria-hidden>
           {TESFA_GEEZ}
         </span>
-        <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-ethio-cream bg-ethio-gold" />
+        <span className="pointer-events-none absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-ethio-cream bg-ethio-gold" />
       </div>
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1 overflow-hidden">
         <span className="block truncate text-base font-bold leading-tight sm:text-lg">
           <span className="text-ethio-green-dark">{first}</span>
           {rest ? <> <span className="text-ethio-ink">{rest}</span></> : null}

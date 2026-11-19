@@ -302,7 +302,7 @@ export default function DashboardPage() {
         subtitle={heroSubtitle}
       />
 
-      <main className="mx-auto max-w-5xl page-pad pb-12 pt-6">
+      <main className="mx-auto w-full min-w-0 max-w-5xl page-pad pb-12 pt-6">
         {user && showPlatform && !showApprovals && !showCounseling && !showSupervision && (
           <AdminDashboardPanel user={user} />
         )}
