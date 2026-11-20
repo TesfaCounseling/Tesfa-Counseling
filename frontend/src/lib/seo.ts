@@ -48,7 +48,8 @@ export const PAGE_SEO = {
   ),
   book: pageMetadata(
     "Book a session",
-    "Choose a time in your timezone and book a secure online counseling session with Tesfa Counseling."
+    "Choose a time in your timezone and book a secure online counseling session with Tesfa Counseling.",
+    "/book"
   ),
   intake: pageMetadata(
     "Trainee intake",

@@ -2,7 +2,7 @@
 
 > Living handoff doc. Update this file as work progresses so the next agent can continue without re-discovering decisions.
 >
-> **Last updated:** 2026-11-20 — first-party `/api` proxy, httpOnly cookie auth + CSRF, Netlify security headers
+> **Last updated:** 2026-11-20 — `/book` → `/counselors`; dashboard session from GET /auth/me cookies (not JS cookie gate)
 
 ---
 
@@ -376,6 +376,7 @@ Note: Tailwind classes use prefix `ethio-*` (legacy) — maps to **blue** brand,
 |-------|------|--------|
 | `/` | Server | Home, mission card, Who we serve, feature cards |
 | `/login` | Client | Safe `?next=` (single `/`, not `//` or a URL) first; else **`/dashboard`** (counselor vs client view). Never default to home. |
+| `/book` | Server | **Permanent redirect** to `/counselors` (counselor picker). Session booking stays at `/counselors/[id]/book`. |
 | `/forgot-password` | Client | Request reset email (reveals if account exists) |
 | `/reset-password` | Client | Set new password from email token |
 | `/register`, `/register/client`, `/counselor`, `/trainee` | Client | Languages required for providers |
@@ -386,7 +387,7 @@ Note: Tailwind classes use prefix `ethio-*` (legacy) — maps to **blue** brand,
 | `/schedule` | Client | Booking-first client schedule |
 | `/account/settings` | Client | Client timezone + language |
 | `/provider/payout` | Client | Counselor bank/payout details + Remitly/TapTap/Wise/WU/CBE |
-| `/dashboard` | Client | **Main hub after login** — awaiting payment verification until approve; payment record after approve |
+| `/dashboard` | Client | **Main hub after login** — awaiting payment verification until approve; payment record after approve. Signed-out → `/login?next=/dashboard` (loading state while auth is checked; no “Not signed in” copy). |
 | `/admin` | Client | Redirects to `/dashboard` if admin access |
 | `/supervision` | Client | Cosign queue — trainee **session notes** only |
 | `/supervision/intakes` | Client | Supervisor view of client intake forms for assigned trainees |
@@ -1049,6 +1050,11 @@ See **`DEPLOY.md`**. Summary:
 - No dedicated admin payments inbox; counselor session list still has reference search
 - Counselor payment actions (card + top banner): three real buttons in one row — **View Receipt** (`btn-cta`, largest), **Approve Payment** (`btn-primary`), **Reject** (`btn-danger`). Stack on 390px in that order; Approve spinner/disabled unchanged
 - Counselor **Edit profile**: photo preview + upload/change/remove is the first block in the form (upload behavior unchanged)
+
+### 2026-11-20 — `/book` alias + dashboard login redirect
+
+- `/book` is a short URL: **308/permanent redirect** to `/counselors` so existing CTAs that point at `/book` reach the counselor list, then `/counselors/[id]/book`. No new booking flow.
+- Signed-out `/dashboard` redirects to `/login?next=/dashboard` instead of “Not signed in. Log in”. After login, safe `?next=` still wins (`frontend/src/lib/safeNext.ts`); unsafe paths stay `/dashboard`. Loading placeholder while auth is checked (no flash of signed-out copy). Role-based dashboard unchanged.
 
 ### 2026-11-19 — Mobile dashboard banner / overflow polish
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import PageHero from "@/components/PageHero";
 import AdminDashboardPanel from "@/components/admin/AdminDashboardPanel";
 import AccountTabs, { type AccountTab } from "@/components/dashboard/AccountTabs";
@@ -21,7 +22,7 @@ import {
   cancelAppointment,
   getMe,
   getSupervisionOverview,
-  hasAuthSession,
+  isUnreachableApiError,
   listAppointments,
   type Appointment,
   type AuthUser,
@@ -42,6 +43,7 @@ import {
 type ProviderTab = "counseling" | "supervision";
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { t, setLanguage } = useLanguage();
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -80,27 +82,43 @@ export default function DashboardPage() {
     [showPlatform, showApprovals, showCounseling, showSupervision].filter(Boolean).length > 1;
 
   useEffect(() => {
-    const t = hasAuthSession() ? "1" : null;
-    setToken(t);
-    if (!t) {
-      setLoadingSessions(false);
-      return;
-    }
+    let cancelled = false;
+    // Do not gate on JS-readable cookies (tesfa_signed_in / csrf_*). The JWT is httpOnly
+    // and GET /auth/me with credentials is the source of truth after a reload.
     getMe()
-      .then((data) => {
+      .then(async (data) => {
+        if (cancelled) return;
+        setToken("1");
         setUser(data.user);
         if (isAppLanguage(data.user.preferred_language)) {
           setLanguage(data.user.preferred_language);
           syncLanguageFromProfile(data.user.preferred_language);
         }
+        try {
+          const sessions = await listAppointments(true);
+          if (!cancelled) setAppointments(sessions.appointments);
+        } catch (err) {
+          if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load sessions");
+        } finally {
+          if (!cancelled) setLoadingSessions(false);
+        }
       })
-      .catch(() => {})
-      .finally(() => setUserLoaded(true));
-    listAppointments(true)
-      .then((data) => setAppointments(data.appointments))
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load sessions"))
-      .finally(() => setLoadingSessions(false));
-  }, []);
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadingSessions(false);
+        if (isUnreachableApiError(err)) {
+          setError(err instanceof Error ? err.message : "Failed to load sessions");
+          return;
+        }
+        router.replace("/login?next=/dashboard");
+      })
+      .finally(() => {
+        if (!cancelled) setUserLoaded(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router, setLanguage]);
 
   useEffect(() => {
     if (!token) return;
@@ -240,13 +258,8 @@ export default function DashboardPage() {
     return (
       <div className="page-shell">
         <SiteHeader showAuth={false} />
-        <main className="flex flex-1 flex-col items-center justify-center page-pad py-12 text-center">
-          <p className="text-base text-ethio-ink-muted">
-            {t("dashboard.notSignedIn")}{" "}
-            <Link href="/login" className="link-inline">
-              {t("nav.login")}
-            </Link>
-          </p>
+        <main className="mx-auto w-full min-w-0 max-w-5xl page-pad py-16 text-center">
+          <p className="text-base text-ethio-ink-muted">Loading…</p>
         </main>
       </div>
     );

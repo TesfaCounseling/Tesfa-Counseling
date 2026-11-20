@@ -10,6 +10,7 @@ const PATH_SCREEN_LABELS: Record<string, string> = {
   "/register/counselor": "Register — Counselor",
   "/register/trainee": "Register — Trainee",
   "/counselors": "Find a counselor",
+  "/book": "Find a counselor",
   "/admin": "Admin",
   "/provider/profile": "Counselor — Edit profile",
   "/provider/schedule": "Counselor — Manage schedule",
