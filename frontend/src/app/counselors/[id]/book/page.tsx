@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
 import PageHero from "@/components/PageHero";
@@ -364,7 +365,7 @@ export default function BookCounselorPage() {
                   <span className="text-3xl" aria-hidden>📅</span>
                   <p className="mt-3 font-semibold text-ethio-ink">No open slots right now</p>
                   <p className="mt-1 text-sm text-ethio-ink-muted">Try another counselor or check back later.</p>
-                  <a href="/counselors" className="btn-secondary mt-5 sm:w-auto">Browse counselors</a>
+                  <Link href="/counselors" className="btn-secondary mt-5 sm:w-auto">Browse counselors</Link>
                 </div>
               ) : null}
             </div>

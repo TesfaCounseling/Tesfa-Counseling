@@ -56,8 +56,9 @@ export default function ClientFeedbackForm() {
         <form onSubmit={handleSubmit} className="card-vibrant mt-3 space-y-4 p-5">        <div>
           <p className="text-sm font-semibold text-ethio-ink">{t("feedback.type")}</p>
           <div className="mt-2 flex flex-wrap gap-3">
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <label htmlFor="feedback-category-feedback" className="flex cursor-pointer items-center gap-2 text-sm">
               <input
+                id="feedback-category-feedback"
                 type="radio"
                 name="category"
                 value="feedback"
@@ -66,8 +67,9 @@ export default function ClientFeedbackForm() {
               />
               {t("feedback.feedback")}
             </label>
-            <label className="flex cursor-pointer items-center gap-2 text-sm">
+            <label htmlFor="feedback-category-complaint" className="flex cursor-pointer items-center gap-2 text-sm">
               <input
+                id="feedback-category-complaint"
                 type="radio"
                 name="category"
                 value="complaint"

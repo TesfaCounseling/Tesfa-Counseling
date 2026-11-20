@@ -123,6 +123,22 @@
     box-sizing: border-box;
   }
 
+  .beta-feedback-fab {
+    pointer-events: none;
+    position: fixed;
+    z-index: 45;
+    display: flex;
+    justify-content: flex-end;
+    bottom: calc(var(--safe-bottom) + 1rem);
+    right: max(0.75rem, var(--safe-right));
+  }
+
+  /* Keep the 44px pill off sticky confirm bars and tall payment action stacks. */
+  body:has(.booking-confirm-bar) .beta-feedback-fab,
+  body:has(.payment-action-banner) .beta-feedback-fab {
+    bottom: calc(var(--safe-bottom) + 6.75rem);
+  }
+
   .surface-badge {
     background: var(--ethio-surface-warm);
     border-color: rgba(7, 137, 48, 0.2);

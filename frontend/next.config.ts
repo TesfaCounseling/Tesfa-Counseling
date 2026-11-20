@@ -37,7 +37,6 @@ const PERMISSIONS_POLICY = [
   "sync-xhr=()",
   "usb=()",
   "xr-spatial-tracking=()",
-  "interest-cohort=()",
 ].join(", ");
 
 const SECURITY_HEADERS = [

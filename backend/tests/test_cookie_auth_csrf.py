@@ -147,3 +147,37 @@ def test_allowed_preview_origin_can_login(client):
     assert login.headers.get("Access-Control-Allow-Origin") == preview
     assert login.headers.get("Access-Control-Allow-Credentials") in ("true", "True")
     assert created.get_json()["access_token"]
+
+
+def _cookie(client, name: str, path: str = "/"):
+    return client.get_cookie(name, path=path)
+
+
+def test_login_cookie_flags_me_cookie_only_and_no_store(client):
+    email, _created = _register(client)
+    csrf = _cookie_value(client, "csrf_access_token")
+    client.post("/api/v1/auth/logout", headers={"X-CSRF-TOKEN": csrf})
+
+    login = client.post("/api/v1/auth/login", json={"email": email, "password": "password123"})
+    assert login.status_code == 200, login.get_json()
+    header = "; ".join(login.headers.getlist("Set-Cookie"))
+    assert "Path=/" in header
+    assert "HttpOnly" in header
+    assert "SameSite=Lax" in header or "SameSite=lax" in header
+
+    access = _cookie(client, "access_token_cookie")
+    assert access is not None
+    assert access.path == "/"
+    assert access.http_only is True or getattr(access, "httponly", False)
+
+    tesfa = _cookie(client, "tesfa_signed_in")
+    assert tesfa is not None
+    assert tesfa.value == "1"
+    assert tesfa.path == "/"
+
+    # Fresh request with only cookies (reload). No Authorization header.
+    me = client.get("/api/v1/auth/me")
+    assert me.status_code == 200
+    assert me.get_json()["user"]["email"] == email
+    cache = (me.headers.get("Cache-Control") or "").lower()
+    assert "no-store" in cache

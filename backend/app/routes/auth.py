@@ -32,6 +32,14 @@ from app.utils import create_provider_organization, log_audit
 
 auth_bp = Blueprint("auth", __name__)
 
+
+@auth_bp.after_request
+def _auth_no_store(response):
+    response.headers["Cache-Control"] = "no-store, private"
+    response.headers["Pragma"] = "no-cache"
+    return response
+
+
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 VALID_REGISTER_ROLES = {UserRole.THERAPIST, UserRole.CLIENT}
 PASSWORD_RESET_EXPIRY_MINUTES = 60
