@@ -21,6 +21,7 @@ import {
   cancelAppointment,
   getMe,
   getSupervisionOverview,
+  hasAuthSession,
   listAppointments,
   type Appointment,
   type AuthUser,
@@ -79,7 +80,7 @@ export default function DashboardPage() {
     [showPlatform, showApprovals, showCounseling, showSupervision].filter(Boolean).length > 1;
 
   useEffect(() => {
-    const t = localStorage.getItem("access_token");
+    const t = hasAuthSession() ? "1" : null;
     setToken(t);
     if (!t) {
       setLoadingSessions(false);

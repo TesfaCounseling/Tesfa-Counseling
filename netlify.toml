@@ -11,9 +11,11 @@
 [[plugins]]
   package = "@netlify/plugin-nextjs"
 
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Frame-Options = "DENY"
-    X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"
+# First-party API proxy so auth cookies are set on tesfacounseling.com / deploy previews.
+# Security headers live in frontend/next.config.ts headers() — Netlify [[headers]]
+# are not applied to Next.js SSR/runtime HTML on this site.
+[[redirects]]
+  from = "/api/*"
+  to = "https://tesfa-counseling.onrender.com/api/:splat"
+  status = 200
+  force = true

@@ -18,7 +18,7 @@ import {
   type AppLanguage,
   type TranslationKey,
 } from "@/lib/i18n";
-import { updatePreferredLanguage } from "@/lib/api";
+import { hasAuthSession, updatePreferredLanguage } from "@/lib/api";
 
 type LanguageContextValue = {
   language: AppLanguage;
@@ -46,7 +46,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
     const next = !AMHARIC_UI_ENABLED ? "en" : lang;
     setLanguageState(next);
     localStorage.setItem(LANGUAGE_STORAGE_KEY, next);
-    if (typeof window !== "undefined" && localStorage.getItem("access_token")) {
+    if (typeof window !== "undefined" && hasAuthSession()) {
       updatePreferredLanguage(next).catch(() => {});
     }
   }, []);

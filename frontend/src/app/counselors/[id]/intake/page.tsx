@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
 import PageHero from "@/components/PageHero";
 import TraineeIntakeForm, { type IntakeFormData } from "@/components/TraineeIntakeForm";
-import { getProvider, getTraineeIntakeStatus, submitTraineeIntake, type Provider } from "@/lib/api";
+import { getProvider, getTraineeIntakeStatus, hasAuthSession, submitTraineeIntake, type Provider } from "@/lib/api";
 
 export default function TraineeIntakePage() {
   const params = useParams();
@@ -16,7 +16,7 @@ export default function TraineeIntakePage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!localStorage.getItem("access_token")) {
+    if (!hasAuthSession()) {
       router.push(`/login?next=/counselors/${providerId}/intake`);
       return;
     }

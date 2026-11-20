@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
 import PageHero from "@/components/PageHero";
 import { SoapNotePreview } from "@/components/SoapNoteFields";
-import { cosignClinicalNote, listSupervisionQueue, type ClinicalNote } from "@/lib/api";
+import { cosignClinicalNote, hasAuthSession, listSupervisionQueue, type ClinicalNote } from "@/lib/api";
 import { formatDateTime } from "@/lib/format";
 
 export default function SupervisionPage() {
@@ -26,7 +26,7 @@ export default function SupervisionPage() {
   }
 
   useEffect(() => {
-    if (!localStorage.getItem("access_token")) {
+    if (!hasAuthSession()) {
       router.push("/login?next=/supervision");
       return;
     }

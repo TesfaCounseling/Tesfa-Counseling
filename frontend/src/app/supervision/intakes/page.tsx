@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
 import PageHero from "@/components/PageHero";
-import { listSupervisorIntakes, type TraineeIntakeRecord } from "@/lib/api";
+import { hasAuthSession, listSupervisorIntakes, type TraineeIntakeRecord } from "@/lib/api";
 import { formatDateTime, formatStatusLabel } from "@/lib/format";
 
 export default function SupervisionIntakesPage() {
@@ -16,7 +16,7 @@ export default function SupervisionIntakesPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!localStorage.getItem("access_token")) {
+    if (!hasAuthSession()) {
       router.push("/login?next=/supervision/intakes");
       return;
     }

@@ -2,7 +2,7 @@
 
 > Living handoff doc. Update this file as work progresses so the next agent can continue without re-discovering decisions.
 >
-> **Last updated:** 2026-11-19 — mobile banner sticky offset, 390px overflow source fixes, feedback pill bottom-right
+> **Last updated:** 2026-11-20 — first-party `/api` proxy, httpOnly cookie auth + CSRF, Netlify security headers
 
 ---
 
@@ -48,7 +48,7 @@
 | Frontend | `http://localhost:3000` | Website UI (Next.js) |
 | API | `http://127.0.0.1:5050/api/v1` | Backend (Flask) |
 
-Users only browse **:3000**. The frontend calls **:5050** via `NEXT_PUBLIC_API_URL`.
+Users only browse **:3000**. The **browser** calls **same-origin `/api/v1`** (Next rewrite → Flask `:5050` locally; Netlify rewrite → Render in production). SSR still uses `NEXT_PUBLIC_API_URL`. Auth is **httpOnly cookies**, not `localStorage` tokens.
 
 ---
 
@@ -58,7 +58,7 @@ Users only browse **:3000**. The frontend calls **:5050** via `NEXT_PUBLIC_API_U
 - [x] Flask app, blueprints, JWT auth
 - [x] User roles: client, therapist, trainee, org_admin, platform_admin, supervisor
 - [x] Register flows: `/register/client`, `/register/counselor`, `/register/trainee`
-- [x] Login (supports `?next=/admin`), refresh, `/me` (includes `account_type`)
+- [x] Login (supports `?next=/admin`), refresh, `/me` (includes `account_type`), **httpOnly cookie session** + `POST /auth/logout`
 - [x] **Forgot / reset password** — `/forgot-password`, `/reset-password`; `POST /auth/forgot-password`, `POST /auth/reset-password`; `PasswordResetToken` (hashed, 60 min, single-use); clear not-found vs sent messages
 - [x] Admin approval API + **full admin dashboard UI**
 - [x] Models: users, orgs, profiles, consent, audit, password reset tokens
@@ -397,7 +397,7 @@ Note: Tailwind classes use prefix `ethio-*` (legacy) — maps to **blue** brand,
 | `/provider/notes/[appointmentId]` | Client | SOAP note editor; logged-out → `/login?next=…` |
 | `/provider/intakes` | Client | View trainee intakes |
 
-**API client:** `frontend/src/lib/api.ts` · **Roles:** `frontend/src/lib/roles.ts` · **Filters:** `frontend/src/lib/providerUtils.ts`
+**API client:** `frontend/src/lib/api.ts` (`credentials: 'include'`, CSRF header from `csrf_access_token` cookie; `hasAuthSession()` reads non-httpOnly `tesfa_signed_in`) · **Roles:** `frontend/src/lib/roles.ts` · **Filters:** `frontend/src/lib/providerUtils.ts`
 
 **Env (`frontend/.env.local`):**
 ```
@@ -415,7 +415,9 @@ NEXT_PUBLIC_ENABLE_AMHARIC=false     # omit or false = English only; true shows 
 backend/
 ├── app/
 │   ├── models.py
-│   ├── config.py              # postgres:// fix, local SQLite path, DAILY_API_KEY, SMTP
+│   ├── config.py              # postgres:// fix, local SQLite path, DAILY_API_KEY, SMTP, JWT cookie settings
+│   ├── auth_cookies.py        # set/clear httpOnly JWT cookies + tesfa_signed_in
+│   ├── csrf_origin.py         # Origin allow-list on cookie state-changing requests
 │   ├── datetime_utils.py      # UTC normalization for API + display
 │   ├── db_utils.py            # SQLite WAL, busy timeout, copy helper
 │   ├── db_bootstrap.py        # password_reset_tokens, appointment payment cols, testing_feedback
@@ -471,6 +473,9 @@ backend/
 | GET | `/therapists` | No | Approved providers |
 | GET/PATCH | `/providers/me` | JWT | Provider profile edit |
 | GET/POST | `/availability/rules`, `/pricing` | JWT | Schedule + rates |
+| POST | `/auth/login`, `/auth/register` | No | Sets httpOnly JWT cookies; JSON still includes tokens for rollout |
+| POST | `/auth/refresh` | Refresh JWT (cookie or Bearer) | Rotates access cookie; JSON `access_token` still returned |
+| POST | `/auth/logout` | No | Clears JWT + `tesfa_signed_in` cookies |
 | POST | `/auth/forgot-password` | No | 404 if email unknown; sends Brevo reset mail |
 | POST | `/auth/reset-password` | No | Body: `token`, `password` |
 | GET/POST | `/appointments` | JWT | List / book (paid → pending payment) |
@@ -586,7 +591,8 @@ NEXT_PUBLIC_ENABLE_AMHARIC=false     # omit or false = English only
 
 See **`DEPLOY.md`**. Summary:
 1. Render: API from `render.yaml`, set `DATABASE_URL`, `CORS_ORIGINS`, `DAILY_API_KEY`, `BREVO_API_KEY`, `SMTP_FROM`, `PAYMENT_*`, `BETA_FEEDBACK_ENABLED`, secrets
-2. Netlify: frontend; `NEXT_PUBLIC_API_URL=https://tesfa-counseling.onrender.com/api/v1`; `NEXT_PUBLIC_BETA_FEEDBACK` in `netlify.toml`
+2. Netlify: frontend; `NEXT_PUBLIC_API_URL=https://tesfa-counseling.onrender.com/api/v1` still used for **SSR** (browser uses `/api/v1` via `netlify.toml` rewrite). `NEXT_PUBLIC_BETA_FEEDBACK` in `netlify.toml`. Security headers live in `netlify.toml` `[[headers]]`.
+2b. **Deploy order:** Render API **first** (cookie + Bearer), then Netlify frontend. Previews call production Render, so cookie login on a preview only works after the API is live.
 3. Run once: `python seed_admin.py`, `python migrate_client_org_links.py`
 4. Migrations run on deploy (`preDeployCommand`) **and** at API start (`flask db upgrade && gunicorn` in `render.yaml`)
 5. **CORS_ORIGINS** should still list production hosts. The API also always allows those hosts plus Netlify deploy previews `https://deploy-preview-<n>--tesfa-counseling.netlify.app` (not a `*` wildcard).
@@ -627,6 +633,7 @@ See **`DEPLOY.md`**. Summary:
 27. **Booking slot grid** — must format times with the saved `client_timezone` (`timeZone` option). Browser-local `toLocaleTimeString()` will show LA times for a Toronto client.
 26. **Netlify build** — duplicate exports / bad TranslationKey types fail deploy; fix and push; retry failed deploy on latest commit
 27. **SEO canonical** — always apex `https://tesfacounseling.com` plus the page path (`SITE_URL` in `frontend/src/lib/seo.ts`). Never set `alternates.canonical` or `og:url` to the homepage on a non-home page. `/counselors/<id>/book` sets its own canonical + `og:url` via `generateMetadata`. Other dynamic routes (pay, note editor) still omit canonical rather than pointing at `/`. `www` 301s to the bare domain.
+28. **Auth cookies** — browser must call **same-origin `/api/v1`**, not Render directly, or login cookies will not stick (Safari blocks third-party). Do not put JWTs in localStorage. CSRF header is required for cookie POSTs/PATCHes.
 
 ---
 
@@ -1051,4 +1058,25 @@ See **`DEPLOY.md`**. Summary:
 
 ---
 
+### 2026-11-20 — Security headers + first-party cookie auth
+
+**Frontend headers** (`frontend/next.config.ts` `headers()` for `/` and `/:path*` — Netlify `[[headers]]` do **not** apply to Next.js runtime HTML on this site): CSP (`default-src 'self'`, `connect-src 'self' https://tesfa-counseling.onrender.com https://*.daily.co wss://*.daily.co`, `frame-src 'self' https://*.daily.co`, `frame-ancestors 'none'`, Daily allowed on `script-src`; `img-src` includes Render + Daily + `blob:`), `X-Frame-Options DENY`, `X-Content-Type-Options nosniff`, `Referrer-Policy strict-origin-when-cross-origin`, `Permissions-Policy` denies unused features and allows camera/microphone/fullscreen/display-capture/autoplay/picture-in-picture for `'self'` and `https://*.daily.co`, `Strict-Transport-Security max-age=31536000; includeSubDomains`. Join video today is a `target=_blank` Daily room URL (not an in-app iframe); CSP still allows Daily in case of embed/`daily-js`. No Google Fonts, analytics, or Brevo widgets in the frontend.
+
+**First-party API proxy:** browser `fetch('/api/v1/...')` with `credentials: 'include'`. Local: Next `rewrites` → `http://127.0.0.1:5050`. Netlify: `[[redirects]] /api/*` 200 → `https://tesfa-counseling.onrender.com/api/:splat` (`force = true`). Cookies have **no Domain** (host-only on tesfacounseling.com / deploy-preview hosts). SameSite=Lax, Secure in production. Avoids third-party cookies (Safari / Chrome).
+
+**Auth cookies:** `access_token_cookie` (HttpOnly, path `/`), `refresh_token_cookie` (HttpOnly, path `/api/v1/auth`), Flask-JWT CSRF cookies `csrf_access_token` / `csrf_refresh_token` (readable by JS), UI flag `tesfa_signed_in=1` (not HttpOnly). Logout `POST /api/v1/auth/logout` clears them. Frontend **does not** read/write tokens in localStorage/sessionStorage.
+
+**CSRF:** SameSite=Lax + double-submit `X-CSRF-TOKEN` on cookie-authenticated mutating requests + Origin allow-list (`csrf_origin.py`) when Origin is present and Authorization Bearer is absent. Bearer clients skip Origin CSRF (rollout).
+
+**Rollout:** `JWT_TOKEN_LOCATION = ["headers", "cookies"]`. Login/register/refresh still return JSON tokens so an old frontend can send `Authorization: Bearer` until Netlify is updated. New frontend ignores JSON tokens.
+
+**CORS:** unchanged allow-list (production hosts + `deploy-preview-N--tesfa-counseling.netlify.app`); `supports_credentials=True`; credentials only for allowed origins (no `*`).
+
+**Master J env:** no new secrets. Keep existing `CORS_ORIGINS`, `JWT_SECRET_KEY`, `NEXT_PUBLIC_API_URL` (SSR). Optional: confirm Netlify rewrite is not overridden by a UI redirect rule.
+
+**Tests:** `backend/tests/test_cookie_auth_csrf.py` (cookies, Bearer, CSRF, logout, preview Origin).
+
+---
+
 *End of context — append updates below as work continues.*
+

@@ -32,8 +32,8 @@ export interface AuthUser {
 
 export interface AuthResponse {
   user: AuthUser;
-  access_token: string;
-  refresh_token: string;
+  access_token?: string;
+  refresh_token?: string;
 }
 
 export interface Provider {
@@ -149,13 +149,29 @@ export interface AvailabilityRule {
   timezone: string;
 }
 
-export function hasAuthSession(): boolean {
-  return Boolean(getToken());
+export const SIGNED_IN_COOKIE = "tesfa_signed_in";
+
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const prefix = `${name}=`;
+  const match = document.cookie.split("; ").find((part) => part.startsWith(prefix));
+  return match ? decodeURIComponent(match.slice(prefix.length)) : null;
 }
 
-function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("access_token");
+export function hasAuthSession(): boolean {
+  if (typeof window === "undefined") return false;
+  return readCookie(SIGNED_IN_COOKIE) === "1" || Boolean(readCookie("csrf_access_token"));
+}
+
+function csrfHeader(kind: "access" | "refresh" = "access"): Record<string, string> {
+  const name = kind === "refresh" ? "csrf_refresh_token" : "csrf_access_token";
+  const token = readCookie(name);
+  return token ? { "X-CSRF-TOKEN": token } : {};
+}
+
+function isUnsafeMethod(method?: string): boolean {
+  const verb = (method || "GET").toUpperCase();
+  return verb !== "GET" && verb !== "HEAD" && verb !== "OPTIONS";
 }
 
 function apiErrorMessage(data: Record<string, unknown>, fallback: string): string {
@@ -168,25 +184,20 @@ function isAuthFailure(status: number, data: Record<string, unknown>): boolean {
   return status === 422 && typeof data.msg === "string";
 }
 
-async function refreshAccessToken(): Promise<string | null> {
-  if (typeof window === "undefined") return null;
-  const refreshToken = localStorage.getItem("refresh_token");
-  if (!refreshToken) return null;
-
+async function refreshAccessToken(): Promise<boolean> {
+  if (typeof window === "undefined") return false;
   try {
     const res = await fetch(`${getApiUrl()}/auth/refresh`, {
       method: "POST",
+      credentials: "include",
       headers: {
-        Authorization: `Bearer ${refreshToken}`,
         "Content-Type": "application/json",
+        ...csrfHeader("refresh"),
       },
     });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok || typeof data.access_token !== "string") return null;
-    localStorage.setItem("access_token", data.access_token);
-    return data.access_token;
+    return res.ok;
   } catch {
-    return null;
+    return false;
   }
 }
 
@@ -200,9 +211,8 @@ async function apiFetch<T>(
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
-  if (auth) {
-    const token = getToken();
-    if (token) headers.Authorization = `Bearer ${token}`;
+  if (auth && isUnsafeMethod(options.method)) {
+    Object.assign(headers, csrfHeader("access"));
   }
 
   const timeoutMs = 15000;
@@ -214,6 +224,7 @@ async function apiFetch<T>(
     res = await fetch(`${getApiUrl()}${path}`, {
       ...options,
       headers,
+      credentials: "include",
       signal: controller.signal,
     });
   } catch (err) {
@@ -228,11 +239,11 @@ async function apiFetch<T>(
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
     if (auth && !retried && isAuthFailure(res.status, data)) {
-      const newToken = await refreshAccessToken();
-      if (newToken) {
+      const refreshed = await refreshAccessToken();
+      if (refreshed) {
         return apiFetch<T>(path, options, auth, true);
       }
-      clearAuthSession();
+      await clearAuthSession();
       throw new Error("Your session expired. Please log in again.");
     }
     throw new Error(apiErrorMessage(data, "Request failed"));
@@ -240,10 +251,45 @@ async function apiFetch<T>(
   return data as T;
 }
 
-export function clearAuthSession() {
+export async function authorizedFetch(
+  url: string,
+  options: RequestInit = {},
+  retried = false
+): Promise<Response> {
+  const headers: Record<string, string> = {
+    ...((options.headers as Record<string, string>) || {}),
+  };
+  if (isUnsafeMethod(options.method)) {
+    Object.assign(headers, csrfHeader("access"));
+  }
+  const res = await fetch(url, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
+  if (!retried && isAuthFailure(res.status, {})) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed) {
+      return authorizedFetch(url, options, true);
+    }
+  }
+  return res;
+}
+
+export async function clearAuthSession() {
   if (typeof window === "undefined") return;
-  localStorage.removeItem("access_token");
-  localStorage.removeItem("refresh_token");
+  try {
+    await fetch(`${getApiUrl()}/auth/logout`, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...csrfHeader("access"),
+      },
+    });
+  } catch {
+    /* still clear client flag if present */
+  }
 }
 
 export function registerUser(payload: {
@@ -714,14 +760,12 @@ export async function uploadPaymentReceipt(
   file: File,
   note?: string
 ) {
-  const token = typeof window !== "undefined" ? localStorage.getItem("access_token") : null;
   const form = new FormData();
   form.append("payment_method", paymentMethod);
   form.append("receipt", file);
   if (note?.trim()) form.append("payment_note", note.trim());
-  const res = await fetch(`${getApiUrl()}/appointments/${id}/payment/receipt`, {
+  const res = await authorizedFetch(`${getApiUrl()}/appointments/${id}/payment/receipt`, {
     method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form,
   });
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
@@ -1043,8 +1087,7 @@ export const MAX_PROVIDER_PHOTO_BYTES = 2 * 1024 * 1024;
 export const ALLOWED_PROVIDER_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
 
 export async function uploadMyProviderPhoto(file: File) {
-  const token = getToken();
-  if (!token) throw new Error("Your session expired. Please log in again.");
+  if (!hasAuthSession()) throw new Error("Your session expired. Please log in again.");
 
   if (file.size > MAX_PROVIDER_PHOTO_BYTES) {
     throw new Error("Photo must be 2 MB or smaller. Try a smaller image.");
@@ -1061,9 +1104,8 @@ export async function uploadMyProviderPhoto(file: File) {
 
   let res: Response;
   try {
-    res = await fetch(`${getApiUrl()}/providers/me/photo`, {
+    res = await authorizedFetch(`${getApiUrl()}/providers/me/photo`, {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
       body: form,
       signal: controller.signal,
     });

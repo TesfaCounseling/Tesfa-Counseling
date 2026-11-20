@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
 import FeedbackPageLocationSetter from "@/components/FeedbackPageLocationSetter";
 import PageHero from "@/components/PageHero";
-import { completeAppointment, getMe, listNoteSessions, type NoteSession } from "@/lib/api";
+import { completeAppointment, getMe, hasAuthSession, listNoteSessions, type NoteSession } from "@/lib/api";
 import { formatDateTime, formatStatusLabel } from "@/lib/format";
 
 function isProvider(accountType?: string | null) {
@@ -36,7 +36,7 @@ export default function ProviderNotesPage() {
   }
 
   useEffect(() => {
-    const token = localStorage.getItem("access_token");
+    const token = hasAuthSession();
     if (!token) {
       router.push("/login?next=/provider/notes");
       return;

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
-import type { Provider } from "@/lib/api";
+import { authorizedFetch, hasAuthSession, type Provider } from "@/lib/api";
 import { getApiUrl } from "@/lib/apiBase";
 import { isOwnProviderPhotoUrl, parseProviderTags, resolveProviderPhotoUrl } from "@/lib/providerUtils";
 
@@ -131,15 +131,12 @@ export function ProviderAvatar({
       }
 
       if (isOwnProviderPhotoUrl(photoUrl)) {
-        const token = localStorage.getItem("access_token");
-        if (!token) {
+        if (!hasAuthSession()) {
           setSrc(null);
           return;
         }
         try {
-          const res = await fetch(`${getApiUrl()}/providers/me/photo`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const res = await authorizedFetch(`${getApiUrl()}/providers/me/photo`);
           if (!res.ok) throw new Error("Photo unavailable");
           const blob = await res.blob();
           objectUrl = URL.createObjectURL(blob);

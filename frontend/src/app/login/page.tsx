@@ -31,8 +31,6 @@ function LoginForm() {
     const form = new FormData(e.currentTarget);
     try {
       const result = await loginUser(String(form.get("email")), String(form.get("password")));
-      localStorage.setItem("access_token", result.access_token);
-      localStorage.setItem("refresh_token", result.refresh_token);
       let user = result.user;
       try {
         const me = await getMe();

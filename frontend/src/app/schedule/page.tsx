@@ -13,6 +13,7 @@ import {
   acknowledgeScheduleChange,
   cancelAppointment,
   getMe,
+  hasAuthSession,
   listAppointments,
   type Appointment,
 } from "@/lib/api";
@@ -62,7 +63,7 @@ export default function ClientSchedulePage() {
   }, []);
 
   useEffect(() => {
-    if (!localStorage.getItem("access_token")) {
+    if (!hasAuthSession()) {
       router.push("/login?next=/schedule");
       return;
     }

@@ -5,6 +5,7 @@ from flask_jwt_extended import JWTManager
 from app.db_utils import configure_sqlite_engine
 from app.config import config_by_name
 from app.cors_util import flask_cors_origins
+from app.csrf_origin import register_origin_csrf
 from app.extensions import db, migrate
 from app.routes.feedback import feedback_bp
 from app.routes.testing_feedback import testing_feedback_bp
@@ -36,7 +37,10 @@ def create_app(config_name: str | None = None) -> Flask:
         app,
         resources={r"/api/*": {"origins": flask_cors_origins(app.config["CORS_ORIGINS"])}},
         supports_credentials=True,
+        allow_headers=["Authorization", "Content-Type", "X-CSRF-TOKEN", "X-Requested-With"],
+        expose_headers=["Content-Type"],
     )
+    register_origin_csrf(app)
 
     register_error_handlers(app)
 

@@ -6,7 +6,9 @@ import uuid
 from datetime import timedelta
 
 from flask import Blueprint, jsonify, request
-from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt_identity, jwt_required
+from flask_jwt_extended import create_access_token, create_refresh_token, get_jwt_identity, jwt_required, set_access_cookies
+
+from app.auth_cookies import attach_auth_cookies, clear_auth_cookies
 
 from app.extensions import db
 from app.models import (
@@ -202,17 +204,15 @@ def register():
 
     access_token = create_access_token(identity=str(user.id))
     refresh_token = create_refresh_token(identity=str(user.id))
-
-    return (
-        jsonify(
-            {
-                "user": _user_to_dict(user),
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-            }
-        ),
-        201,
+    response = jsonify(
+        {
+            "user": _user_to_dict(user),
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+        }
     )
+    attach_auth_cookies(response, access_token, refresh_token)
+    return response, 201
 
 
 @auth_bp.route("/login", methods=["POST"])
@@ -234,13 +234,15 @@ def login():
         log_audit("user.login", "user", str(user.id), actor_id=user.id)
         db.session.commit()
 
-        return jsonify(
+        response = jsonify(
             {
                 "user": _user_to_dict(user),
                 "access_token": access_token,
                 "refresh_token": refresh_token,
             }
         )
+        attach_auth_cookies(response, access_token, refresh_token)
+        return response
 
     try:
         return run_with_db_retry(_login)
@@ -264,7 +266,17 @@ def refresh():
     if not user or not user.is_active:
         return jsonify({"error": "Unauthorized", "message": "Invalid or inactive user"}), 401
 
-    return jsonify({"access_token": create_access_token(identity=str(user.id))})
+    access_token = create_access_token(identity=str(user.id))
+    response = jsonify({"access_token": access_token})
+    set_access_cookies(response, access_token)
+    return response
+
+
+@auth_bp.route("/logout", methods=["POST"])
+def logout():
+    response = jsonify({"message": "Signed out"})
+    clear_auth_cookies(response)
+    return response
 
 
 @auth_bp.route("/forgot-password", methods=["POST"])
