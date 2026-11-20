@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useState } from "react";
+import Link from "next/link";
 import AuthShell from "@/components/AuthShell";
 import { useLanguage } from "@/components/LanguageProvider";
 import { requestPasswordReset } from "@/lib/api";
@@ -59,9 +60,9 @@ export default function ForgotPasswordPage() {
         </button>
 
         <p className="text-center text-sm text-ethio-ink-muted">
-          <a href="/login" className="link-inline">
+          <Link href="/login" className="link-inline">
             {t("forgot.backToLogin")}
-          </a>
+          </Link>
         </p>
       </form>
     </AuthShell>

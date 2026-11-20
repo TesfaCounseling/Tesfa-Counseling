@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 type PageHeroProps = {
   eyebrow?: string;
@@ -23,9 +24,9 @@ export default function PageHero({
     <div className="page-hero">
       <div className={`mx-auto max-w-5xl page-pad py-8 sm:py-10 ${centered ? "text-center" : ""}`}>
         {backHref && (
-          <a href={backHref} className="inline-flex items-center gap-1 text-sm font-semibold text-ethio-green-dark hover:text-ethio-green">
+          <Link href={backHref} className="inline-flex items-center gap-1 text-sm font-semibold text-ethio-green-dark hover:text-ethio-green">
             ← {backLabel}
-          </a>
+          </Link>
         )}
         {eyebrow && (
           <p

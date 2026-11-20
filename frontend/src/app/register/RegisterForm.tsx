@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, useEffect, useState } from "react";
 import AuthShell from "@/components/AuthShell";
@@ -226,7 +227,7 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
 
         <p className="text-center text-base text-ethio-ink-muted">
           {t("register.alreadyHave")}{" "}
-          <a
+          <Link
             href={
               isSafeNextPath(nextPath)
                 ? `/login?next=${encodeURIComponent(nextPath)}`
@@ -235,7 +236,7 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
             className="link-inline"
           >
             {t("nav.login")}
-          </a>
+          </Link>
         </p>
 
         {lockRole && (
@@ -243,16 +244,16 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
             {role === "client" ? (
               <>
                 Are you a counselor?{" "}
-                <a href="/register/counselor" className="link-inline">
+                <Link href="/register/counselor" className="link-inline">
                   Apply as counselor
-                </a>
+                </Link>
               </>
             ) : (
               <>
                 Need counseling?{" "}
-                <a href="/register/client" className="link-inline">
+                <Link href="/register/client" className="link-inline">
                   Sign up as client
-                </a>
+                </Link>
               </>
             )}
           </p>

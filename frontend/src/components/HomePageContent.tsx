@@ -53,13 +53,13 @@ export default function HomePageContent({ providers }: HomePageContentProps) {
         subtitle={t("home.subtitle")}
       >
         <div className="mx-auto mt-9 flex max-w-sm flex-col items-center gap-4 sm:mt-11">
-          <a href="/counselors" className="btn-cta">
+          <Link href="/counselors" className="btn-cta">
             {t("home.findCounselor")}
-          </a>
+          </Link>
           <p className="text-sm text-ethio-ink-muted">
-            <a href="/register" className="link-inline">
+            <Link href="/register" className="link-inline">
               {t("home.counselorApply")}
-            </a>
+            </Link>
           </p>
         </div>
       </PageHero>
