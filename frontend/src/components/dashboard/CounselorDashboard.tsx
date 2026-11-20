@@ -153,9 +153,11 @@ export default function CounselorDashboard({
 
       <section className="mt-10">
         <h2 className="text-lg font-bold text-ethio-ink">Upcoming sessions</h2>
-        <label className="mt-3 block min-w-0 text-base font-medium text-ethio-ink">
+        <label htmlFor="counselor-payment-search" className="mt-3 block min-w-0 text-base font-medium text-ethio-ink">
           {t("pay.searchByReference")}
           <input
+            id="counselor-payment-search"
+            name="payment_reference"
             type="search"
             value={referenceQuery}
             onChange={(e) => setReferenceQuery(e.target.value)}

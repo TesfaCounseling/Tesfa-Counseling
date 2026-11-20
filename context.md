@@ -2,7 +2,7 @@
 
 > Living handoff doc. Update this file as work progresses so the next agent can continue without re-discovering decisions.
 >
-> **Last updated:** 2026-11-20 — `/book` → `/counselors`; dashboard session from GET /auth/me cookies (not JS cookie gate)
+> **Last updated:** 2026-11-20 — `/book` → `/counselors`; dashboard `/me` wait; counselor profile; payment banner cap; feedback clearance
 
 ---
 
@@ -381,6 +381,7 @@ Note: Tailwind classes use prefix `ethio-*` (legacy) — maps to **blue** brand,
 | `/reset-password` | Client | Set new password from email token |
 | `/register`, `/register/client`, `/counselor`, `/trainee` | Client | Languages required for providers |
 | `/counselors` | Server | Provider list + filters |
+| `/counselors/[id]` | Server | Public counselor profile (name, photo, bio, specialties) + **Book a session** → `/counselors/[id]/book` |
 | `/counselors/[id]/book` | Client | Book or `?reschedule=:id`; slot grid in **saved client timezone**; logged-out → login `?next=` back to this book page |
 | `/counselors/[id]/intake` | Client | Trainee intake before booking |
 | `/appointments/[id]/pay` | Client | Remittance instructions + receipt upload; hides unset `PAYMENT_ACCOUNT_DETAILS` |
@@ -1051,10 +1052,17 @@ See **`DEPLOY.md`**. Summary:
 - Counselor payment actions (card + top banner): three real buttons in one row — **View Receipt** (`btn-cta`, largest), **Approve Payment** (`btn-primary`), **Reject** (`btn-danger`). Stack on 390px in that order; Approve spinner/disabled unchanged
 - Counselor **Edit profile**: photo preview + upload/change/remove is the first block in the form (upload behavior unchanged)
 
-### 2026-11-20 — `/book` alias + dashboard login redirect
+### 2026-11-20 — `/book` alias, dashboard login, profile, mobile actions
 
-- `/book` is a short URL: **308/permanent redirect** to `/counselors` so existing CTAs that point at `/book` reach the counselor list, then `/counselors/[id]/book`. No new booking flow.
-- Signed-out `/dashboard` redirects to `/login?next=/dashboard` instead of “Not signed in. Log in”. After login, safe `?next=` still wins (`frontend/src/lib/safeNext.ts`); unsafe paths stay `/dashboard`. Loading placeholder while auth is checked (no flash of signed-out copy). Role-based dashboard unchanged.
+- `/book` permanently redirects to `/counselors`. Booking stays `/counselors/[id]/book`.
+- Signed-out `/dashboard` → `/login?next=/dashboard` (safe `?next=`). Dashboard waits on `GET /auth/me` (`credentials: 'include'`) before treating the user as signed out; loading placeholder, no “Not signed in” copy.
+- Auth routes send `Cache-Control: no-store, private`. Reload-logout could not be reproduced by testers; JS cookie gate remains on other pages.
+- `/counselors/[id]` is a public profile (existing `/therapists/:id` data) with Book a session.
+- Counselor payment banner: summary + expand; details scroll at `max-h-[40vh]`.
+- Feedback pill lifts above `.booking-confirm-bar` / `.payment-action-banner` (44px tap target kept).
+- Pay + counselor session search fields have `id`/`name` + `htmlFor`.
+- Permissions-Policy: dropped `interest-cohort` only.
+- `http://tesfacounseling.com/dashboard` is a Netlify **301 → https** in production (not a 500 from repo config).
 
 ### 2026-11-19 — Mobile dashboard banner / overflow polish
 

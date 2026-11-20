@@ -259,7 +259,7 @@ export default function DashboardPage() {
       <div className="page-shell">
         <SiteHeader showAuth={false} />
         <main className="mx-auto w-full min-w-0 max-w-5xl page-pad py-16 text-center">
-          <p className="text-base text-ethio-ink-muted">Loading…</p>
+          <p className="text-base text-ethio-ink-muted">{error || "Loading…"}</p>
         </main>
       </div>
     );

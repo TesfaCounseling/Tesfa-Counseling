@@ -165,9 +165,11 @@ export default function AppointmentPayPage() {
               </p>
             ) : (
               <form onSubmit={handleSubmit} className="min-w-0 space-y-4">
-                <label className="block text-base font-medium text-ethio-ink">
+                <label htmlFor="pay-method" className="block text-base font-medium text-ethio-ink">
                   {t("pay.method")}
                   <select
+                    id="pay-method"
+                    name="payment_method"
                     className="input-field"
                     value={method}
                     onChange={(e) => setMethod(e.target.value as DiasporaPaymentMethod)}
@@ -179,9 +181,11 @@ export default function AppointmentPayPage() {
                     ))}
                   </select>
                 </label>
-                <label className="block text-base font-medium text-ethio-ink">
+                <label htmlFor="pay-receipt" className="block text-base font-medium text-ethio-ink">
                   {t("pay.receipt")}
                   <input
+                    id="pay-receipt"
+                    name="receipt"
                     type="file"
                     accept="image/*,application/pdf"
                     className="input-field"
@@ -189,9 +193,11 @@ export default function AppointmentPayPage() {
                     required
                   />
                 </label>
-                <label className="block text-base font-medium text-ethio-ink">
+                <label htmlFor="pay-notes" className="block text-base font-medium text-ethio-ink">
                   {t("pay.notesOptional")}
                   <input
+                    id="pay-notes"
+                    name="payment_note"
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     maxLength={500}

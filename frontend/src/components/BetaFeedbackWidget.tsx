@@ -89,14 +89,7 @@ export default function BetaFeedbackWidget() {
 
   return (
     <>
-      <div
-        className="pointer-events-none fixed z-[45] flex justify-end"
-        style={{
-          bottom: "calc(var(--safe-bottom) + 1rem)",
-          right: "max(0.75rem, var(--safe-right))",
-        }}
-        aria-hidden={open}
-      >
+      <div className="beta-feedback-fab" aria-hidden={open}>
         <button
           type="button"
           onClick={openModal}
@@ -147,6 +140,7 @@ export default function BetaFeedbackWidget() {
                 </label>
                 <input
                   id="beta-feedback-name"
+                  name="submitter_name"
                   type="text"
                   value={submitterName}
                   onChange={(e) => setSubmitterName(e.target.value)}
@@ -162,8 +156,9 @@ export default function BetaFeedbackWidget() {
               <label htmlFor="beta-feedback-type" className="text-sm font-semibold text-ethio-ink">
                 Type
               </label>
-              <select
+                <select
                 id="beta-feedback-type"
+                name="feedback_type"
                 value={feedbackType}
                 onChange={(e) => setFeedbackType(e.target.value as TestingFeedbackType)}
                 className="mt-1 w-full rounded-xl border border-ethio-border px-3 py-2 text-sm"
@@ -180,8 +175,9 @@ export default function BetaFeedbackWidget() {
               <label htmlFor="beta-feedback-message" className="text-sm font-semibold text-ethio-ink">
                 Your notes
               </label>
-              <textarea
+                <textarea
                 id="beta-feedback-message"
+                name="message"
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
                 required
