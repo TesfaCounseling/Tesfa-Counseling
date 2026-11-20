@@ -68,7 +68,7 @@ export default function ClientScheduleAlerts({ appointments, onDismiss, perspect
           key={appt.id}
           className={`${alertClassName(appt)} flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between`}
         >
-          <div>
+          <div className="min-w-0 max-w-full">
             <p className="font-semibold">
               {appt.schedule_alert?.type === "booked"
                 ? appt.payment_status === "pending" || appt.payment_status === "submitted"
@@ -76,7 +76,7 @@ export default function ClientScheduleAlerts({ appointments, onDismiss, perspect
                   : t("schedule.bookedTitle")
                 : t("schedule.rescheduledTitle")}
             </p>
-            <p className="mt-1">{alertMessage(appt)}</p>
+            <p className="mt-1 [overflow-wrap:anywhere]">{alertMessage(appt)}</p>
           </div>
           <button
             type="button"

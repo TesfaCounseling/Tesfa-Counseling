@@ -29,14 +29,14 @@ export default function PageHero({
         )}
         {eyebrow && (
           <p
-            className={`surface-badge inline-flex items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-semibold shadow-sm ${backHref ? "mt-4" : ""}`}
+            className={`surface-badge inline-flex max-w-full min-w-0 items-center gap-2 rounded-full border px-4 py-1.5 text-sm font-semibold shadow-sm ${backHref ? "mt-4" : ""}`}
           >
-            <span className="h-2 w-2 rounded-full bg-ethio-green animate-pulse" aria-hidden />
-            {eyebrow}
+            <span className="h-2 w-2 shrink-0 rounded-full bg-ethio-green animate-pulse" aria-hidden />
+            <span className="min-w-0 truncate">{eyebrow}</span>
           </p>
         )}
         <h1
-          className={`mt-4 font-extrabold leading-tight tracking-tight text-ethio-ink ${
+          className={`mt-4 max-w-full font-extrabold leading-tight tracking-tight text-ethio-ink [overflow-wrap:anywhere] ${
             centered ? "mx-auto text-3xl sm:text-5xl lg:text-6xl" : "text-3xl sm:text-4xl"
           }`}
         >
@@ -44,7 +44,7 @@ export default function PageHero({
         </h1>
         {subtitle && (
           <p
-            className={`mt-3 max-w-2xl text-base leading-relaxed text-ethio-ink-muted sm:text-lg ${
+            className={`mt-3 max-w-2xl text-base leading-relaxed text-ethio-ink-muted [overflow-wrap:anywhere] sm:text-lg ${
               centered ? "mx-auto" : ""
             }`}
           >

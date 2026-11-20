@@ -16,6 +16,18 @@ const TYPE_OPTIONS: { value: TestingFeedbackType; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
+function FeedbackIcon({ className = "h-5 w-5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+      <path
+        d="M21 12a8.5 8.5 0 0 1-8.5 8.5H7l-4 3V12A8.5 8.5 0 1 1 21 12Z"
+        strokeLinejoin="round"
+      />
+      <path d="M8.5 11h.01M12 11h.01M15.5 11h.01" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 export default function BetaFeedbackWidget() {
   const pathname = usePathname();
   const locationSnapshot = useFeedbackPageLocationSnapshot();
@@ -78,17 +90,24 @@ export default function BetaFeedbackWidget() {
   return (
     <>
       <div
-        className="pointer-events-none fixed inset-x-0 top-[calc(var(--safe-top)+5.75rem)] z-[100] flex justify-end px-3 sm:top-[calc(var(--safe-top)+3.75rem)] sm:px-4"
+        className="pointer-events-none fixed z-[45] flex justify-end"
+        style={{
+          bottom: "calc(var(--safe-bottom) + 1rem)",
+          right: "max(0.75rem, var(--safe-right))",
+        }}
         aria-hidden={open}
       >
         <button
           type="button"
           onClick={openModal}
-          className="pointer-events-auto flex max-w-[min(100%,18rem)] flex-col items-start gap-0.5 rounded-2xl border-2 border-ethio-gold bg-ethio-green px-5 py-3.5 text-left text-white shadow-ethio ring-4 ring-ethio-gold/30 transition hover:bg-ethio-green-dark sm:max-w-xs sm:px-6 sm:py-4"
+          className="pointer-events-auto inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-2 rounded-full border-2 border-ethio-gold bg-ethio-green text-white shadow-ethio transition hover:bg-ethio-green-dark sm:rounded-2xl sm:px-5 sm:py-3.5"
           aria-label="Give Us Your Feedback"
         >
-          <span className="text-base font-extrabold leading-tight sm:text-lg">Give Us Your Feedback</span>
-          <span className="text-xs font-medium text-white/90 sm:text-sm">Tap here — tell us what to change</span>
+          <FeedbackIcon className="h-5 w-5 shrink-0" />
+          <span className="hidden min-w-0 flex-col items-start text-left sm:flex">
+            <span className="text-base font-extrabold leading-tight">Give Us Your Feedback</span>
+            <span className="text-sm font-medium text-white/90">Tap here — tell us what to change</span>
+          </span>
         </button>
       </div>
 

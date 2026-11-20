@@ -2,7 +2,7 @@
 
 > Living handoff doc. Update this file as work progresses so the next agent can continue without re-discovering decisions.
 >
-> **Last updated:** 2026-11-17 — counselor Edit Profile photo moved to top of form
+> **Last updated:** 2026-11-19 — mobile banner sticky offset, 390px overflow source fixes, feedback pill bottom-right
 
 ---
 
@@ -1042,6 +1042,12 @@ See **`DEPLOY.md`**. Summary:
 - No dedicated admin payments inbox; counselor session list still has reference search
 - Counselor payment actions (card + top banner): three real buttons in one row — **View Receipt** (`btn-cta`, largest), **Approve Payment** (`btn-primary`), **Reject** (`btn-danger`). Stack on 390px in that order; Approve spinner/disabled unchanged
 - Counselor **Edit profile**: photo preview + upload/change/remove is the first block in the form (upload behavior unchanged)
+
+### 2026-11-19 — Mobile dashboard banner / overflow polish
+
+- Shared CSS var `--site-header-height` (SiteHeader ResizeObserver + CSS fallback); payment banners use `.payment-action-banner` with `top: var(--site-header-height)` and z-index 40 (under header z-50, above content)
+- 390px sideways scroll: source fixes — header/nav `min-w-0` (dropped nav `shrink-0`), `btn-cta` no forced `sm:min-w-[280px]`, payment refs/`overflow-wrap:anywhere`, page-shell/`main` `min-w-0`, BrandLogo gold dot no longer hangs past icon box
+- UAT feedback widget: bottom-right safe-area pill; icon-only under 640px (`aria-label`), full label on `sm+`; min 44×44 tap target; z-45 so it no longer covers banner titles
 
 ---
 
