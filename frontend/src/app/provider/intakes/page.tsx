@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
 import FeedbackPageLocationSetter from "@/components/FeedbackPageLocationSetter";
 import PageHero from "@/components/PageHero";
-import { listProviderIntakes, type TraineeIntakeRecord } from "@/lib/api";
+import { hasAuthSession, listProviderIntakes, type TraineeIntakeRecord } from "@/lib/api";
 import { formatDateTime, formatStatusLabel } from "@/lib/format";
 
 export default function ProviderIntakesPage() {
@@ -17,7 +17,7 @@ export default function ProviderIntakesPage() {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!localStorage.getItem("access_token")) {
+    if (!hasAuthSession()) {
       router.push("/login?next=/provider/intakes");
       return;
     }

@@ -89,9 +89,7 @@ export default function RegisterForm({ defaultRole, lockRole = false }: Register
       if (role === "therapist") {
         payload.specializations = String(form.get("specializations") || "").trim();
       }
-      const result = await registerUser(payload);
-      localStorage.setItem("access_token", result.access_token);
-      localStorage.setItem("refresh_token", result.refresh_token);
+      await registerUser(payload);
       setLanguage(preferredLanguage);
       router.push(role === "client" ? safeNext : "/dashboard");
     } catch (err) {

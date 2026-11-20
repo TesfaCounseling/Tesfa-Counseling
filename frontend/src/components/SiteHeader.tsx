@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { BrandLogoLink } from "@/components/BrandLogo";
 import LanguageSwitcher from "@/components/LanguageSwitcher";
 import { useLanguage } from "@/components/LanguageProvider";
-import { clearAuthSession, getMe, type AuthUser } from "@/lib/api";
+import { clearAuthSession, getMe, hasAuthSession, type AuthUser } from "@/lib/api";
 import { AMHARIC_UI_ENABLED } from "@/lib/featureFlags";
 
 type SiteHeaderProps = {
@@ -36,7 +36,7 @@ function ProfileFaceIcon({ className = "h-4 w-4" }: { className?: string }) {
 
 export function isLoggedIn(): boolean {
   if (typeof window === "undefined") return false;
-  return !!localStorage.getItem("access_token");
+  return hasAuthSession();
 }
 
 export default function SiteHeader({ showAuth = true, user: userProp = null }: SiteHeaderProps) {
@@ -91,8 +91,8 @@ export default function SiteHeader({ showAuth = true, user: userProp = null }: S
     };
   }, [loggedIn, user, pathname]);
 
-  function handleLogout() {
-    clearAuthSession();
+  async function handleLogout() {
+    await clearAuthSession();
     setLoggedIn(false);
     setUser(null);
     window.location.href = "/";

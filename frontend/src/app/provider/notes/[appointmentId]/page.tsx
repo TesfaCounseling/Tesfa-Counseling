@@ -10,6 +10,7 @@ import {
   createClinicalNote,
   getMe,
   getNoteByAppointment,
+  hasAuthSession,
   submitClinicalNote,
   updateClinicalNote,
   type AuthUser,
@@ -36,7 +37,7 @@ export default function ClinicalNoteEditorPage() {
   const readOnly = note != null && note.status !== "draft";
 
   useEffect(() => {
-    if (!localStorage.getItem("access_token")) {
+    if (!hasAuthSession()) {
       router.replace(`/login?next=${encodeURIComponent(`/provider/notes/${appointmentId}`)}`);
       return;
     }

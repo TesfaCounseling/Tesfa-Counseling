@@ -14,6 +14,7 @@ import {
   getProviderPricing,
   getProviderSlots,
   getTraineeIntakeStatus,
+  hasAuthSession,
   rescheduleAppointment,
   type Provider,
   type ProviderPricing,
@@ -88,7 +89,7 @@ export default function BookCounselorPage() {
   useEffect(() => {
     if (!clientTz) return;
 
-    const token = localStorage.getItem("access_token");
+    const token = hasAuthSession();
     if (!token) {
       const returnPath =
         isReschedule && rescheduleId

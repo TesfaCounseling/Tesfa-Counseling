@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useLanguage } from "@/components/LanguageProvider";
 import {
+  authorizedFetch,
   paymentReceiptUrl,
   verifyAppointmentPayment,
   type Appointment,
@@ -15,10 +16,7 @@ export function usePaymentVerification(onUpdated?: (appointment: Appointment) =>
   const [paymentError, setPaymentError] = useState("");
 
   async function openReceipt(id: string) {
-    const token = localStorage.getItem("access_token");
-    const res = await fetch(paymentReceiptUrl(id), {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    const res = await authorizedFetch(paymentReceiptUrl(id));
     if (!res.ok) throw new Error(t("pay.loadError"));
     const blob = await res.blob();
     const url = URL.createObjectURL(blob);

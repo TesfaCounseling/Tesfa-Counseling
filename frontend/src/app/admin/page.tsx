@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import SiteHeader from "@/components/SiteHeader";
 import PageHero from "@/components/PageHero";
 import AdminDashboardPanel from "@/components/admin/AdminDashboardPanel";
-import { getMe, type AuthUser } from "@/lib/api";
+import { getMe, hasAuthSession, type AuthUser } from "@/lib/api";
 import { hasAdminAccess } from "@/lib/roles";
 import { clearAuthSession } from "@/components/SiteHeader";
 import { formatStatusLabel } from "@/lib/format";
@@ -18,7 +18,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const t = localStorage.getItem("access_token");
+    const t = hasAuthSession() ? "1" : null;
     setToken(t);
     if (!t) {
       setLoading(false);
@@ -98,8 +98,8 @@ export default function AdminPage() {
               <button
                 type="button"
                 className="btn-primary text-sm"
-                onClick={() => {
-                  clearAuthSession();
+                onClick={async () => {
+                  await clearAuthSession();
                   window.location.href = "/login?next=/dashboard";
                 }}
               >
