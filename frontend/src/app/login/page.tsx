@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useState } from "react";
 import AuthShell from "@/components/AuthShell";
@@ -77,9 +78,9 @@ function LoginForm() {
         </label>
 
         <p className="text-right text-base">
-          <a href="/forgot-password" className="link-inline">
+          <Link href="/forgot-password" className="link-inline">
             {t("login.forgotPassword")}
-          </a>
+          </Link>
         </p>
 
         {error && (
@@ -94,9 +95,9 @@ function LoginForm() {
 
         <p className="text-center text-base text-ethio-ink-muted">
           {t("login.newHere")}{" "}
-          <a href={registerHref} className="link-inline">
+          <Link href={registerHref} className="link-inline">
             {t("login.createAccount")}
-          </a>
+          </Link>
         </p>
       </form>
     </AuthShell>

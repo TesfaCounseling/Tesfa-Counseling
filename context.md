@@ -2,7 +2,7 @@
 
 > Living handoff doc. Update this file as work progresses so the next agent can continue without re-discovering decisions.
 >
-> **Last updated:** 2026-11-20 — `/book` → `/counselors`; dashboard `/me` wait; counselor profile; payment banner cap; feedback clearance
+> **Last updated:** 2026-11-20 — `/book` → `/counselors`; Netlify prod `next build` fails on in-app `<a>` (`@next/next/no-html-link-for-pages`) — use `next/link`
 
 ---
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, Suspense, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import AuthShell from "@/components/AuthShell";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -58,9 +59,9 @@ function ResetPasswordForm() {
           {t("reset.missingToken")}
         </p>
         <p className="mt-5 text-center text-sm text-ethio-ink-muted">
-          <a href="/forgot-password" className="link-inline">
+          <Link href="/forgot-password" className="link-inline">
             {t("reset.requestNew")}
-          </a>
+          </Link>
         </p>
       </AuthShell>
     );
@@ -109,9 +110,9 @@ function ResetPasswordForm() {
         </button>
 
         <p className="text-center text-sm text-ethio-ink-muted">
-          <a href="/login" className="link-inline">
+          <Link href="/login" className="link-inline">
             {t("forgot.backToLogin")}
-          </a>
+          </Link>
         </p>
       </form>
     </AuthShell>
